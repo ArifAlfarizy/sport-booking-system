@@ -1,0 +1,23 @@
+rapihin validasi dan error handling
+secret, dan lain2 masukkin ENV
+
+1. USER KELARIN
+
+
+// sisanya nanti 
+
+
+
+
+
+
+
+ALITTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT
+BURUNGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGG
+REJAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+SUZAN.
+
+
+Buat endpoint refreshtoken dari cookies
+
+migrate buat buat db dan tables
