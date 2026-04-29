@@ -1,8 +1,11 @@
 import express from "express";
 import "dotenv/config";
+import fieldRoute from "./src/routes/fieldRoute.js";
 const PORT = process.env.PORT || 3002;
 
 const app = express();
+
+app.use("/fields", fieldRoute);
 
 app.get("/", (req, res) => {
   res.send("Tes");

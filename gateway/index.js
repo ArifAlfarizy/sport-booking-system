@@ -19,6 +19,22 @@ app.use(
   }),
 );
 
+app.use(
+  "/fields",
+  createProxyMiddleware({
+    target: "http://localhost:3002",
+    changeOrigin: true,
+    pathRewrite: (path) => `/fields${path}`,
+    on: {
+      proxyReq: (proxyReq, req) => {
+        console.log(
+          `[PROXY] ${req.method} ${req.originalUrl} → ${proxyReq.path}`,
+        );
+      },
+    },
+  }),
+);
+
 app.listen(port, () => {
   console.log(`API Gateway berjalan pada port ${port}`);
 });
