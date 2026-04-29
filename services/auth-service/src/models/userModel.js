@@ -29,3 +29,12 @@ export const createUser = async ({
 
   return rows[0];
 };
+
+// GET: User by oauth
+export const getUserOauth = async (oauth_id) => {
+  const [rows] = await db.query(
+    `SELECT * FROM users WHERE oauth_provider = 'google' AND oauth_id = ?;`,
+    [oauth_id],
+  );
+  return rows[0];
+};

@@ -2,9 +2,11 @@ import { findByEmail, createUser } from "../models/userModel.js";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcrypt";
 import { saveRefreshToken, deleteRefreshToken } from "../models/tokenModel.js";
+import {
+  generateAccessToken,
+  generateRefreshToken,
+} from "../utils/tokenHelper.js";
 const saltRounds = 10;
-const accessSecret = process.env.ACCESS_SECRET;
-const refreshSecret = process.env.REFRESH_SECRET;
 
 export const register = async (req, res) => {
   try {
@@ -17,7 +19,6 @@ export const register = async (req, res) => {
     }
 
     const existingEmail = await findByEmail(email);
-
     if (existingEmail) {
       return res
         .status(409)
@@ -34,29 +35,31 @@ export const register = async (req, res) => {
       role,
     });
 
-    const token = jwt.sign({ id: newUser.id }, accessSecret, {
-      expiresIn: "1d",
-    });
+    const accessToken = generateAccessToken(newUser);
+    const refreshToken = generateRefreshToken(newUser);
 
-    res.cookie("refreshToken", token, {
+    const expiredAt = new Date();
+    expiredAt.setDate(expiredAt.getDate() + 7);
+    await saveRefreshToken(newUser.id, refreshToken, expiredAt);
+
+    res.cookie("refreshToken", refreshToken, {
       httpOnly: true,
-      secure: true,
-      sameSite: "strict",
+      secure: false, 
+      sameSite: "lax", 
     });
 
-    res
-      .status(201)
-      .json({ message: "Berhasil register user", data: newUser, token: token });
+    res.status(201).json({
+      message: "Berhasil register user",
+      data: newUser,
+      token: accessToken,
+    });
   } catch (error) {
     console.error(error);
-
-    return res.status(500).json({
-      success: false,
-      message: "Internal Server Error",
-    });
+    return res
+      .status(500)
+      .json({ success: false, message: "Internal Server Error" });
   }
 };
-
 export const login = async (req, res) => {
   try {
     const { email, password } = req.body;
@@ -76,7 +79,7 @@ export const login = async (req, res) => {
     }
 
     // Destructure
-    const { id: userId, password: savedPassword } = existingEmail;
+    const { password: savedPassword } = existingEmail;
 
     // Check password
     const isPasswordValid = await bcrypt.compare(password, savedPassword);
@@ -86,24 +89,18 @@ export const login = async (req, res) => {
     }
 
     // Refresh token
-    const refreshToken = jwt.sign({ id: userId }, refreshSecret, {
-      expiresIn: "7d",
-    });
-
-    // Token
-    const accessToken = jwt.sign({ id: userId }, accessSecret, {
-      expiresIn: "15m",
-    });
+    const accessToken = generateAccessToken(existingEmail);
+    const refreshToken = generateRefreshToken(existingEmail);
 
     const expiredAt = new Date();
     expiredAt.setDate(expiredAt.getDate() + 7);
 
-    await saveRefreshToken(userId, refreshToken, expiredAt);
+    await saveRefreshToken(existingEmail.id, refreshToken, expiredAt);
 
     res.cookie("refreshToken", refreshToken, {
       httpOnly: true,
-      secure: true,
-      sameSite: "strict",
+      secure: false,
+      sameSite: "lax",
     });
 
     res.status(200).json({
@@ -130,12 +127,10 @@ export const refresh = async (req, res) => {
     const token = req.cookies.refreshToken;
     if (!token) return res.status(401).json({ error: "No token provided" });
 
-    jwt.verify(token, refreshSecret, (err, user) => {
+    jwt.verify(token, process.env.JWT_REFRESH_SECRET, (err, user) => {
       if (err) return res.status(403).json({ error: "Invalid token" });
 
-      const newAccessToken = jwt.sign({ id: user.id }, accessSecret, {
-        expiresIn: "15m",
-      });
+      const newAccessToken = generateAccessToken(user);
 
       res.status(200).json({ accessToken: newAccessToken });
     });
