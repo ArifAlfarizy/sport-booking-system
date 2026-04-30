@@ -20,11 +20,11 @@ app.use(
 );
 
 app.use(
-  "/fields",
+  "/",
   createProxyMiddleware({
     target: "http://localhost:3002",
     changeOrigin: true,
-    pathRewrite: (path) => `/fields${path}`,
+    pathRewrite: (path) => `/${path}`,
     on: {
       proxyReq: (proxyReq, req) => {
         console.log(
