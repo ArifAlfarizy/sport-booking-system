@@ -1,7 +1,7 @@
 import { findByEmail, createUser } from "../models/userModel.js";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcrypt";
-import { saveRefreshToken, deleteRefreshToken } from "../models/tokenModel.js";
+import { saveRefreshToken, revokeRefreshToken } from "../utils/tokenHelper.js";
 import {
   generateAccessToken,
   generateRefreshToken,
@@ -151,7 +151,7 @@ export const logout = async (req, res) => {
       return res.status(400).json({ message: "Tidak ada token" });
     }
 
-    await deleteRefreshToken(token);
+    await revokeRefreshToken(token);
 
     res.clearCookie("refreshToken", {
       httpOnly: true,

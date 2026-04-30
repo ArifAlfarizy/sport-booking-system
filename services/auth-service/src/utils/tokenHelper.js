@@ -11,9 +11,13 @@ export const generateAccessToken = (user) => {
 };
 
 export const generateRefreshToken = (user) => {
-  return jwt.sign({ id: user.id, role: user.role }, process.env.JWT_REFRESH_SECRET, {
-    expiresIn: "7d",
-  });
+  return jwt.sign(
+    { id: user.id, role: user.role },
+    process.env.JWT_REFRESH_SECRET,
+    {
+      expiresIn: "7d",
+    },
+  );
 };
 
 export const saveRefreshToken = async (userId, token) => {
@@ -26,6 +30,15 @@ export const saveRefreshToken = async (userId, token) => {
   );
 };
 
+export const findRefreshToken = async (token) => {
+  const [rows] = await db.query(
+    "SELECT * FROM refresh_tokens WHERE token = ?",
+    [token],
+  );
+  return rows[0];
+};
+
+// DELETE
 export const revokeRefreshToken = async (token) => {
   await db.query("DELETE FROM refresh_tokens WHERE token = ?", [token]);
 };
@@ -49,4 +62,3 @@ export const isTokenBlacklisted = async (token) => {
   );
   return rows.length > 0;
 };
-
