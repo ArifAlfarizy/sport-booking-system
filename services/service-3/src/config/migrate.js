@@ -65,26 +65,6 @@ async function migrate() {
 
     console.log(`Slots tabel telah dibuat`);
 
-    // Buat tabel reviews
-    await connection.query(`
-      CREATE TABLE reviews (
-        id          CHAR(36)  NOT NULL DEFAULT (UUID()),
-        field_id    CHAR(36)  NOT NULL,
-        user_id     CHAR(36)  NOT NULL COMMENT 'References user_db.users.id',
-        booking_id  CHAR(36)  NOT NULL COMMENT 'References booking_db.bookings.id',
-        rating      TINYINT   NOT NULL,
-        comment     TEXT      NULL,
-        created_at  DATETIME  NOT NULL DEFAULT CURRENT_TIMESTAMP,
-      
-        PRIMARY KEY (id),
-        UNIQUE KEY uq_review_booking (booking_id),
-        KEY idx_field (field_id),
-        CONSTRAINT fk_review_field FOREIGN KEY (field_id) REFERENCES fields(id) ON DELETE CASCADE,
-        CONSTRAINT chk_rating CHECK (rating BETWEEN 1 AND 5)
-      ) ENGINE=InnoDB;
-      `);
-
-    console.log(`Reviews tabel telah dibuat`);
     console.log(`Migrate berhasil!`);
   } catch (err) {
     console.err("Migrate gagal. ", err);
