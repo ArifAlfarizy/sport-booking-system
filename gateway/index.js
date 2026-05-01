@@ -13,7 +13,7 @@ app.use((req, res, next) => {
 
 // 3001 - Auth service
 app.use(
-  ["/api/auth", "/api/oauth"],
+  ["/api/auth", "/api/oauth", "/api/user"],
   createProxyMiddleware({
     target: "http://localhost:3001",
     changeOrigin: true,

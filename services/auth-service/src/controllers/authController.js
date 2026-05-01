@@ -1,38 +1,58 @@
 import { findByEmail, createUser } from "../models/userModel.js";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcrypt";
-import { saveRefreshToken, revokeRefreshToken } from "../utils/tokenHelper.js";
+import { saveRefreshToken, revokeRefreshToken, findRefreshToken } from "../utils/tokenHelper.js";
 import {
   generateAccessToken,
   generateRefreshToken,
 } from "../utils/tokenHelper.js";
+
 const saltRounds = 10;
+
+const isValidEmail = (email) => {
+  return typeof email === "string" && email.includes("@");
+};
 
 export const register = async (req, res) => {
   try {
     const { name, email, password, role } = req.body;
 
-    if (!name || !email || !password || !role) {
-      return res
-        .status(400)
-        .json({ message: "Field wajib diisi: name, email, password, role" });
+    if (!name || !email || !password, !role) {
+      return res.status(400).json({
+        success: false,
+        message: "Field wajib diisi: name, email, password, role",
+      });
+    }
+
+    if (!isValidEmail(email)) {
+      return res.status(400).json({
+        success: false,
+        message: "Email tidak valid",
+      });
+    }
+
+    if (password.length < 6) {
+      return res.status(400).json({
+        success: false,
+        message: "Password minimal 6 karakter",
+      });
     }
 
     const existingEmail = await findByEmail(email);
     if (existingEmail) {
-      return res
-        .status(409)
-        .json({ message: "Email sudah terdaftar. Silahkan login!" });
+      return res.status(409).json({
+        success: false,
+        message: "Email sudah terdaftar",
+      });
     }
 
-    const salt = await bcrypt.genSalt(saltRounds);
-    const hashedPassword = await bcrypt.hash(password, salt);
+    const hashedPassword = await bcrypt.hash(password, saltRounds);
 
     const newUser = await createUser({
       name,
       email,
       password: hashedPassword,
-      role,
+      role: "user",
     });
 
     const accessToken = generateAccessToken(newUser);
@@ -40,81 +60,85 @@ export const register = async (req, res) => {
 
     const expiredAt = new Date();
     expiredAt.setDate(expiredAt.getDate() + 7);
+
     await saveRefreshToken(newUser.id, refreshToken, expiredAt);
 
     res.cookie("refreshToken", refreshToken, {
       httpOnly: true,
-      secure: false, 
-      sameSite: "lax", 
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
     });
 
-    res.status(201).json({
-      message: "Berhasil register user",
+    return res.status(201).json({
+      success: true,
+      message: "Berhasil register",
       data: newUser,
-      token: accessToken,
+      accessToken,
     });
   } catch (error) {
-    console.error(error);
-    return res
-      .status(500)
-      .json({ success: false, message: "Internal Server Error" });
+    console.error("Register Error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+    });
   }
 };
+
 export const login = async (req, res) => {
   try {
     const { email, password } = req.body;
 
     if (!email || !password) {
-      return res
-        .status(400)
-        .json({ message: "Field wajib diisi: email dan password" });
+      return res.status(400).json({
+        success: false,
+        message: "Email dan password wajib diisi",
+      });
     }
 
-    const existingEmail = await findByEmail(email);
+    const user = await findByEmail(email);
 
-    if (!existingEmail) {
-      return res
-        .status(401)
-        .json({ message: "Email belum terdaftar. Silahkan register!" });
+    if (!user) {
+      return res.status(401).json({
+        success: false,
+        message: "Email atau password salah",
+      });
     }
 
-    // Destructure
-    const { password: savedPassword } = existingEmail;
-
-    // Check password
-    const isPasswordValid = await bcrypt.compare(password, savedPassword);
+    const isPasswordValid = await bcrypt.compare(password, user.password);
 
     if (!isPasswordValid) {
-      return res.status(401).json({ error: "Invalid password" });
+      return res.status(401).json({
+        success: false,
+        message: "Email atau password salah",
+      });
     }
 
-    // Refresh token
-    const accessToken = generateAccessToken(existingEmail);
-    const refreshToken = generateRefreshToken(existingEmail);
+    const accessToken = generateAccessToken(user);
+    const refreshToken = generateRefreshToken(user);
 
     const expiredAt = new Date();
     expiredAt.setDate(expiredAt.getDate() + 7);
 
-    await saveRefreshToken(existingEmail.id, refreshToken, expiredAt);
+    await saveRefreshToken(user.id, refreshToken, expiredAt);
 
     res.cookie("refreshToken", refreshToken, {
       httpOnly: true,
-      secure: false,
+      secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
     });
 
-    res.status(200).json({
-      message: "Berhasil login user",
+    return res.status(200).json({
+      success: true,
+      message: "Berhasil login",
       data: {
-        name: existingEmail.name,
-        email: existingEmail.email,
+        id: user.id,
+        name: user.name,
+        email: user.email,
       },
-      accessToken: accessToken,
-      refreshToken: refreshToken,
+      accessToken,
     });
   } catch (error) {
-    console.error(error);
-
+    console.error("Login Error:", error);
     return res.status(500).json({
       success: false,
       message: "Internal Server Error",
@@ -125,17 +149,40 @@ export const login = async (req, res) => {
 export const refresh = async (req, res) => {
   try {
     const token = req.cookies.refreshToken;
-    if (!token) return res.status(401).json({ error: "No token provided" });
+
+    if (!token) {
+      return res.status(401).json({
+        success: false,
+        message: "Token tidak ditemukan",
+      });
+    }
+
+    const savedToken = await findRefreshToken(token);
+
+    if (!savedToken) {
+      return res.status(403).json({
+        success: false,
+        message: "Token tidak valid",
+      });
+    }
 
     jwt.verify(token, process.env.JWT_REFRESH_SECRET, (err, user) => {
-      if (err) return res.status(403).json({ error: "Invalid token" });
+      if (err) {
+        return res.status(403).json({
+          success: false,
+          message: "Token tidak valid",
+        });
+      }
 
       const newAccessToken = generateAccessToken(user);
 
-      res.status(200).json({ accessToken: newAccessToken });
+      return res.status(200).json({
+        success: true,
+        accessToken: newAccessToken,
+      });
     });
   } catch (error) {
-    console.error(error);
+    console.error("Refresh Error:", error);
     return res.status(500).json({
       success: false,
       message: "Internal Server Error",
@@ -148,22 +195,29 @@ export const logout = async (req, res) => {
     const token = req.cookies.refreshToken;
 
     if (!token) {
-      return res.status(400).json({ message: "Tidak ada token" });
+      return res.status(400).json({
+        success: false,
+        message: "Token tidak ditemukan",
+      });
     }
 
     await revokeRefreshToken(token);
 
     res.clearCookie("refreshToken", {
       httpOnly: true,
-      secure: true,
-      sameSite: "strict",
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
     });
 
-    res.status(200).json({ message: "Berhasil logout" });
+    return res.status(200).json({
+      success: true,
+      message: "Berhasil logout",
+    });
   } catch (error) {
-    console.error(error);
-    return res
-      .status(500)
-      .json({ success: false, message: "Internal Server Error" });
+    console.error("Logout Error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+    });
   }
 };

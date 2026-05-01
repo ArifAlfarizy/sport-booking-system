@@ -1,12 +1,15 @@
 import db from "../config/db.js";
 
-// GET : User by email
 export const findByEmail = async (email) => {
   const [rows] = await db.query("SELECT * FROM users WHERE email = ?", [email]);
   return rows[0];
 };
 
-// CREATE: User
+export const findById = async (id) => {
+  const [rows] = await db.query("SELECT * FROM users WHERE id = ?", [id]);
+  return rows[0];
+};
+
 export const createUser = async ({
   name,
   email,
@@ -30,11 +33,45 @@ export const createUser = async ({
   return rows[0];
 };
 
-// GET: User by oauth
 export const getUserOauth = async (oauth_id) => {
   const [rows] = await db.query(
-    `SELECT * FROM users WHERE oauth_provider = 'google' AND oauth_id = ?;`,
+    `SELECT * FROM users WHERE oauth_provider = 'google' AND oauth_id = ?`,
     [oauth_id],
   );
   return rows[0];
+};
+
+export const updateUser = async (id, data) => {
+  const fields = [];
+  const values = [];
+
+  for (const key in data) {
+    fields.push(`${key} = ?`);
+    values.push(data[key]);
+  }
+
+  if (fields.length === 0) {
+    throw new Error("No data to update");
+  }
+
+  values.push(id);
+
+  await db.query(`UPDATE users SET ${fields.join(", ")} WHERE id = ?`, values);
+
+  const [rows] = await db.query(
+    `SELECT id, name, email, role FROM users WHERE id = ?`,
+    [id],
+  );
+
+  return rows[0];
+};
+
+export const deleteUser = async (id) => {
+  const [result] = await db.query("DELETE FROM users WHERE id = ?", [id]);
+
+  return result.affectedRows > 0;
+};
+
+export const softDeleteUser = async (id) => {
+  await db.query("UPDATE users SET deleted_at = NOW() WHERE id = ?", [id]);
 };
