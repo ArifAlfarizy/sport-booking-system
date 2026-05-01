@@ -13,8 +13,8 @@ app.use(express.json());
 app.use(cookieParser());
 app.use(passport.initialize());                     // ← tambah
 
-app.use("/auth", authRouter);
-app.use("/auth", oauthRouter);                     // ← tambah
+app.use("/", authRouter);
+app.use("/oauth", oauthRouter);                     // ← tambah
 
 app.get("/tes", verifyToken, (req, res) => {
   res.send("tes");

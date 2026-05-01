@@ -7,8 +7,8 @@ const PORT = process.env.PORT || 3002;
 const app = express();
 app.use(express.json());
 
-app.use("/fields", fieldRoute);
-app.use("/slots", slotRouter)
+app.use("/", fieldRoute);
+app.use("/", slotRouter)
 
 app.get("/", (req, res) => {
   res.send("Tes");

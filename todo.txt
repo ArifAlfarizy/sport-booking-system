@@ -24,3 +24,7 @@ migrate buat buat db dan tables
 
 
 rapihin tokenHelper dan tokenModel
+
+perbaiki service-2 = 3003
+servicee 3 = 3002 
+ketuker
