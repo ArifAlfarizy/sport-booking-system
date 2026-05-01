@@ -29,21 +29,22 @@ export const getAllFields = async (req, res) => {
 export const getFieldById = async (req, res) => {
   try {
     const { id } = req.params;
-
     const field = await findFieldById(id);
+
+    if (!field) {
+      return res.status(404).json({ success: false, message: "Field tidak ditemukan" });
+    }
+
     res.status(200).json(field);
   } catch (error) {
     console.error("Error", error);
-    return res
-      .status(500)
-      .json({ success: false, message: "Internal Server Error" });
+    return res.status(500).json({ success: false, message: "Internal Server Error" });
   }
 };
 
 export const createFieldController = async (req, res) => {
   try {
     const role = req.headers["x-user-role"];
-    console.log(role);
 
     if (role === "user") {
       return res.status(403).json({ message: "Forbidden. Only owners can create field" });
@@ -121,10 +122,9 @@ export const updateFieldController = async (req, res) => {
 export const deleteFieldController = async (req, res) => {
   try {
     const role = req.headers["x-user-role"];
-    console.log(role);
 
     if (role === "user") {
-      return res.status(403).json({ message: "Forbidden" });
+      return res.status(403).json({ message: "Forbidden. Only owner can delete a field" });
     }
 
     const ownerId = req.headers["x-user-id"];

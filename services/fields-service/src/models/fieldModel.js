@@ -11,7 +11,7 @@ export const findAllFields = async () => {
 // GET : Field detail by id
 export const findFieldById = async (id) => {
   const [rows] = await db.query(`SELECT * FROM fields WHERE id = ?`, [id]);
-  return [rows];
+  return rows[0];
 };
 
 // POST: Create a fields

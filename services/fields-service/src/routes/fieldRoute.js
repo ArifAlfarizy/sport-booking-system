@@ -11,11 +11,13 @@ import { createSlotController, getSlotsByField } from "../controllers/slotContro
 const fieldRoute = express.Router();
 
 fieldRoute.get("/", getAllFields);
-fieldRoute.get("/:id", getFieldById);
 fieldRoute.post("/", createFieldController);
-fieldRoute.patch("/:id", updateFieldController);
-fieldRoute.delete("/:id", deleteFieldController);
 
 fieldRoute.get("/:id/slots", getSlotsByField);
 fieldRoute.post("/:id/slots", createSlotController);
+
+fieldRoute.get("/:id", getFieldById);
+fieldRoute.patch("/:id", updateFieldController);
+fieldRoute.delete("/:id", deleteFieldController);
+
 export default fieldRoute;

@@ -1,0 +1,558 @@
+{
+  "info": {
+    "name": "Sport Booking API",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "API Collection for Sport Booking microservices: Auth, Field, and Booking-Payment services via API Gateway (port 3000)"
+  },
+  "variable": [
+    { "key": "base_url", "value": "http://localhost:3000", "type": "string" },
+    { "key": "access_token", "value": "", "type": "string" },
+    { "key": "user_id", "value": "", "type": "string" },
+    { "key": "field_id", "value": "", "type": "string" },
+    { "key": "slot_id", "value": "", "type": "string" },
+    { "key": "booking_id", "value": "", "type": "string" },
+    { "key": "payment_id", "value": "", "type": "string" }
+  ],
+  "item": [
+    {
+      "name": "Auth Service",
+      "item": [
+        {
+          "name": "Register",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{base_url}}/api/auth/register", "host": ["{{base_url}}"], "path": ["api", "auth", "register"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"John Doe\",\n  \"email\": \"john@example.com\",\n  \"password\": \"password123\",\n  \"role\": \"user\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Register (Owner)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{base_url}}/api/auth/register", "host": ["{{base_url}}"], "path": ["api", "auth", "register"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Owner Name\",\n  \"email\": \"owner@example.com\",\n  \"password\": \"password123\",\n  \"role\": \"owner\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const json = pm.response.json();",
+                  "if (json.accessToken) {",
+                  "  pm.collectionVariables.set('access_token', json.accessToken);",
+                  "}",
+                  "if (json.data && json.data.id) {",
+                  "  pm.collectionVariables.set('user_id', json.data.id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{base_url}}/api/auth/login", "host": ["{{base_url}}"], "path": ["api", "auth", "login"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"john@example.com\",\n  \"password\": \"password123\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{base_url}}/api/auth/logout", "host": ["{{base_url}}"], "path": ["api", "auth", "logout"] },
+            "body": { "mode": "raw", "raw": "{}" }
+          }
+        },
+        {
+          "name": "Refresh Token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const json = pm.response.json();",
+                  "if (json.accessToken) {",
+                  "  pm.collectionVariables.set('access_token', json.accessToken);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{base_url}}/api/auth/refresh", "host": ["{{base_url}}"], "path": ["api", "auth", "refresh"] },
+            "body": { "mode": "raw", "raw": "{}" }
+          }
+        },
+        {
+          "name": "OAuth - Google Login",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{base_url}}/api/oauth/google", "host": ["{{base_url}}"], "path": ["api", "oauth", "google"] },
+            "description": "Redirects to Google OAuth. Open in browser."
+          }
+        },
+        {
+          "name": "OAuth - Google Failure",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{base_url}}/api/oauth/google/failure", "host": ["{{base_url}}"], "path": ["api", "oauth", "google", "failure"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "User Service",
+      "item": [
+        {
+          "name": "Get User By ID",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{access_token}}" }],
+            "url": { "raw": "{{base_url}}/api/user/{{user_id}}", "host": ["{{base_url}}"], "path": ["api", "user", "{{user_id}}"] }
+          }
+        },
+        {
+          "name": "Update User",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{access_token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": { "raw": "{{base_url}}/api/user/{{user_id}}", "host": ["{{base_url}}"], "path": ["api", "user", "{{user_id}}"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Updated Name\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Delete User",
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Authorization", "value": "Bearer {{access_token}}" }],
+            "url": { "raw": "{{base_url}}/api/user/{{user_id}}", "host": ["{{base_url}}"], "path": ["api", "user", "{{user_id}}"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Field Service",
+      "item": [
+        {
+          "name": "Get All Fields",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{access_token}}" }],
+            "url": { "raw": "{{base_url}}/api/fields", "host": ["{{base_url}}"], "path": ["api", "fields"] }
+          }
+        },
+        {
+          "name": "Get Field By ID",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{access_token}}" }],
+            "url": { "raw": "{{base_url}}/api/fields/{{field_id}}", "host": ["{{base_url}}"], "path": ["api", "fields", "{{field_id}}"] }
+          }
+        },
+        {
+          "name": "Create Field (Owner)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const json = pm.response.json();",
+                  "if (json.data && json.data.id) {",
+                  "  pm.collectionVariables.set('field_id', json.data.id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{access_token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": { "raw": "{{base_url}}/api/fields", "host": ["{{base_url}}"], "path": ["api", "fields"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Lapangan Futsal A\",\n  \"type\": \"futsal\",\n  \"address\": \"Jl. Sudirman No. 10\",\n  \"city\": \"Jakarta\",\n  \"status\": \"active\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Update Field (Owner)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{access_token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": { "raw": "{{base_url}}/api/fields/{{field_id}}", "host": ["{{base_url}}"], "path": ["api", "fields", "{{field_id}}"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Lapangan Futsal A Updated\",\n  \"status\": \"inactive\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Delete Field (Owner)",
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Authorization", "value": "Bearer {{access_token}}" }],
+            "url": { "raw": "{{base_url}}/api/fields/{{field_id}}", "host": ["{{base_url}}"], "path": ["api", "fields", "{{field_id}}"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Slot Service",
+      "item": [
+        {
+          "name": "Get Slots By Field",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{access_token}}" }],
+            "url": {
+              "raw": "{{base_url}}/api/fields/{{field_id}}/slots?day=monday&status=available",
+              "host": ["{{base_url}}"],
+              "path": ["api", "fields", "{{field_id}}", "slots"],
+              "query": [
+                { "key": "day", "value": "monday", "description": "Filter by day (e.g. monday, tuesday)" },
+                { "key": "status", "value": "available", "description": "Filter by status (available / booked)" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Slot By ID",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{access_token}}" }],
+            "url": { "raw": "{{base_url}}/api/slots/{{slot_id}}", "host": ["{{base_url}}"], "path": ["api", "slots", "{{slot_id}}"] }
+          }
+        },
+        {
+          "name": "Create Slot (Owner)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const json = pm.response.json();",
+                  "if (json.data && json.data.id) {",
+                  "  pm.collectionVariables.set('slot_id', json.data.id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{access_token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": { "raw": "{{base_url}}/api/fields/{{field_id}}/slots", "host": ["{{base_url}}"], "path": ["api", "fields", "{{field_id}}", "slots"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"day\": \"monday\",\n  \"start_time\": \"08:00\",\n  \"end_time\": \"09:00\",\n  \"price\": 150000,\n  \"status\": \"available\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Update Slot (Owner)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{access_token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": { "raw": "{{base_url}}/api/slots/{{slot_id}}", "host": ["{{base_url}}"], "path": ["api", "slots", "{{slot_id}}"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"price\": 175000,\n  \"status\": \"available\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Update Slot Status (Internal)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{access_token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": { "raw": "{{base_url}}/api/slots/{{slot_id}}/status", "host": ["{{base_url}}"], "path": ["api", "slots", "{{slot_id}}", "status"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"booked\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Delete Slot (Owner)",
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Authorization", "value": "Bearer {{access_token}}" }],
+            "url": { "raw": "{{base_url}}/api/slots/{{slot_id}}", "host": ["{{base_url}}"], "path": ["api", "slots", "{{slot_id}}"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Booking Service",
+      "item": [
+        {
+          "name": "My Bookings (User)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{access_token}}" }],
+            "url": {
+              "raw": "{{base_url}}/api/bookings/me?status=pending_dp",
+              "host": ["{{base_url}}"],
+              "path": ["api", "bookings", "me"],
+              "query": [
+                { "key": "status", "value": "pending_dp", "description": "Filter: pending_dp, dp_paid, paid, cancelled, done" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get All Bookings (Owner/Admin)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{access_token}}" }],
+            "url": {
+              "raw": "{{base_url}}/api/bookings?status=pending_dp&field_id={{field_id}}&date=2026-05-01",
+              "host": ["{{base_url}}"],
+              "path": ["api", "bookings"],
+              "query": [
+                { "key": "status", "value": "pending_dp" },
+                { "key": "field_id", "value": "{{field_id}}" },
+                { "key": "date", "value": "2026-05-01" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Booking By ID",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{access_token}}" }],
+            "url": { "raw": "{{base_url}}/api/bookings/{{booking_id}}", "host": ["{{base_url}}"], "path": ["api", "bookings", "{{booking_id}}"] }
+          }
+        },
+        {
+          "name": "Create Booking (User)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const json = pm.response.json();",
+                  "if (json.data && json.data.id) {",
+                  "  pm.collectionVariables.set('booking_id', json.data.id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{access_token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": { "raw": "{{base_url}}/api/bookings", "host": ["{{base_url}}"], "path": ["api", "bookings"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"slot_id\": \"{{slot_id}}\",\n  \"field_id\": \"{{field_id}}\",\n  \"play_date\": \"2026-05-05\",\n  \"notes\": \"Please prepare the field\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Cancel Booking (User/Admin)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{access_token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": { "raw": "{{base_url}}/api/bookings/{{booking_id}}/cancel", "host": ["{{base_url}}"], "path": ["api", "bookings", "{{booking_id}}", "cancel"] },
+            "body": { "mode": "raw", "raw": "{}" }
+          }
+        },
+        {
+          "name": "Confirm Booking as Done (Owner)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{access_token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": { "raw": "{{base_url}}/api/bookings/{{booking_id}}/confirm", "host": ["{{base_url}}"], "path": ["api", "bookings", "{{booking_id}}", "confirm"] },
+            "body": { "mode": "raw", "raw": "{}" }
+          }
+        },
+        {
+          "name": "Expire All Bookings (Admin)",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Authorization", "value": "Bearer {{access_token}}" }],
+            "url": { "raw": "{{base_url}}/api/bookings/expire", "host": ["{{base_url}}"], "path": ["api", "bookings", "expire"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Payment Service",
+      "item": [
+        {
+          "name": "Upload Payment Proof (User)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const json = pm.response.json();",
+                  "if (json.data && json.data.id) {",
+                  "  pm.collectionVariables.set('payment_id', json.data.id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{access_token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": { "raw": "{{base_url}}/api/payments", "host": ["{{base_url}}"], "path": ["api", "payments"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"booking_id\": \"{{booking_id}}\",\n  \"type\": \"dp\",\n  \"amount\": 75000,\n  \"method\": \"transfer\",\n  \"proof_url\": \"https://storage.example.com/proof/bukti_transfer.jpg\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Upload Settlement Payment (User)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{access_token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": { "raw": "{{base_url}}/api/payments", "host": ["{{base_url}}"], "path": ["api", "payments"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"booking_id\": \"{{booking_id}}\",\n  \"type\": \"settlement\",\n  \"amount\": 75000,\n  \"method\": \"transfer\",\n  \"proof_url\": \"https://storage.example.com/proof/settlement.jpg\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Get Payments By Booking",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{access_token}}" }],
+            "url": { "raw": "{{base_url}}/api/payments/{{booking_id}}", "host": ["{{base_url}}"], "path": ["api", "payments", "{{booking_id}}"] }
+          }
+        },
+        {
+          "name": "Verify Payment (Owner/Admin)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{access_token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": { "raw": "{{base_url}}/api/payments/{{payment_id}}/verify", "host": ["{{base_url}}"], "path": ["api", "payments", "{{payment_id}}", "verify"] },
+            "body": { "mode": "raw", "raw": "{}" }
+          }
+        },
+        {
+          "name": "Reject Payment (Owner/Admin)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{access_token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": { "raw": "{{base_url}}/api/payments/{{payment_id}}/reject", "host": ["{{base_url}}"], "path": ["api", "payments", "{{payment_id}}", "reject"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reject_note\": \"Bukti transfer tidak jelas, mohon upload ulang\"\n}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Dashboard Service",
+      "item": [
+        {
+          "name": "Today's Bookings (Owner/Admin)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{access_token}}" }],
+            "url": { "raw": "{{base_url}}/api/dashboard/today", "host": ["{{base_url}}"], "path": ["api", "dashboard", "today"] }
+          }
+        },
+        {
+          "name": "Revenue Report (Owner/Admin)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{access_token}}" }],
+            "url": {
+              "raw": "{{base_url}}/api/dashboard/revenue?from=2026-05-01&to=2026-05-31&field_id={{field_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "dashboard", "revenue"],
+              "query": [
+                { "key": "from", "value": "2026-05-01", "description": "Start date (YYYY-MM-DD)" },
+                { "key": "to", "value": "2026-05-31", "description": "End date (YYYY-MM-DD)" },
+                { "key": "field_id", "value": "{{field_id}}", "description": "Optional: filter by specific field" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Pending Payments (Owner/Admin)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{access_token}}" }],
+            "url": { "raw": "{{base_url}}/api/dashboard/pending", "host": ["{{base_url}}"], "path": ["api", "dashboard", "pending"] }
+          }
+        }
+      ]
+    }
+  ]
+}

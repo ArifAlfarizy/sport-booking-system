@@ -1,5 +1,12 @@
 import db from "../config/db.js";
 
+// GET all slots
+export const findAllSlots = async() => {
+  const [rows] = await db.query("SELECT * FROM slots");
+  return rows;
+}
+
+
 // GET all slots by field + filter
 export const findSlotsByField = async (field_id, day, status) => {
   let query = "SELECT * FROM slots WHERE field_id = ?";
