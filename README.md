@@ -101,22 +101,35 @@ php artisan key:generate
 
 ---
 
-## Migrate Semua Database Sekaligus
+## Migrate, Seed & Jalankan
 
-Dari folder `gateway`, jalankan:
+Semua perintah dijalankan dari folder `gateway`.
+
+### Migrate semua database
 
 ```bash
-cd gateway
 npm run migrate
 ```
 
-Script ini otomatis membuat database dan tabel untuk semua service sekaligus.
+Membuat database dan tabel untuk semua service sekaligus.
 
----
+### Seed semua database
 
-## Menjalankan Semua Service Sekaligus
+```bash
+npm run seed
+```
 
-Dari folder `gateway`, jalankan:
+Mengisi data awal untuk semua service sekaligus.
+
+### Migrate + Seed sekaligus
+
+```bash
+npm run setup
+```
+
+Menjalankan migrate lalu seed secara otomatis.
+
+### Jalankan semua service
 
 ```bash
 npm run dev

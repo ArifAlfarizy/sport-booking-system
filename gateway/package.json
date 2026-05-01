@@ -6,6 +6,8 @@
   "scripts": {
     "start": "node index.js",
     "migrate": "node ../services/auth-service/src/config/migrate.js && node ../services/fields-service/src/config/migrate.js && cd ../services/booking-payment-service && php artisan db:setup",
+    "seed": "node ../services/fields-service/src/config/seeder.js && cd ../services/booking-payment-service && php artisan db:seed",
+    "setup": "npm run migrate && npm run seed",
     "dev": "concurrently \"node index.js\" \"cd ../services/auth-service && node src/index.js\" \"cd ../services/fields-service && node src/index.js\" \"cd ../services/booking-payment-service && php artisan serve --port=3003\"",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
