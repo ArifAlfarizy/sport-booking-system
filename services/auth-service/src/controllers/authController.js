@@ -1,7 +1,11 @@
-import { findByEmail, createUser } from "../models/userModel.js";
+import { findByEmail, createUser, findById } from "../models/userModel.js";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcrypt";
-import { saveRefreshToken, revokeRefreshToken, findRefreshToken } from "../utils/tokenHelper.js";
+import {
+  saveRefreshToken,
+  revokeRefreshToken,
+  findRefreshToken,
+} from "../utils/tokenHelper.js";
 import {
   generateAccessToken,
   generateRefreshToken,
@@ -17,7 +21,7 @@ export const register = async (req, res) => {
   try {
     const { name, email, password, role } = req.body;
 
-    if (!name || !email || !password, !role) {
+    if ((!name || !email || !password, !role)) {
       return res.status(400).json({
         success: false,
         message: "Field wajib diisi: name, email, password, role",
@@ -52,7 +56,7 @@ export const register = async (req, res) => {
       name,
       email,
       password: hashedPassword,
-      role: "user",
+      role: role || "user",
     });
 
     const accessToken = generateAccessToken(newUser);
@@ -145,7 +149,6 @@ export const login = async (req, res) => {
     });
   }
 };
-
 export const refresh = async (req, res) => {
   try {
     const token = req.cookies.refreshToken;
@@ -166,11 +169,22 @@ export const refresh = async (req, res) => {
       });
     }
 
-    jwt.verify(token, process.env.JWT_REFRESH_SECRET, (err, user) => {
+    jwt.verify(token, process.env.JWT_REFRESH_SECRET, async (err, decoded) => {
       if (err) {
         return res.status(403).json({
           success: false,
           message: "Token tidak valid",
+        });
+      }
+
+
+      const user = await findById(decoded.id)
+  
+
+      if (!user) {
+        return res.status(403).json({
+          success: false,
+          message: "User tidak ditemukan",
         });
       }
 
