@@ -13,6 +13,17 @@ import {
 // DELETE: Field
 // Tambahkan validasi jangan lupa dan catch errror
 
+const getOwnerName = async (ownerId) => {
+  try {
+    const res = await fetch(`${process.env.AUTH_SERVICE_URL}/api/user/${ownerId}`);
+    if (!res.ok) return null;
+    const user = await res.json();
+    return user.name ?? null;
+  } catch {
+    return null;
+  }
+};
+
 export const getAllFields = async (req, res) => {
   try {
     const role = req.headers["x-user-role"];
@@ -55,10 +66,25 @@ export const getAllFields = async (req, res) => {
 
     const fields = await findAllFields(filters);
 
+    // Enrich dengan owner name
+    const ownerIds = [...new Set(fields.map((f) => f.owner_id))];
+    const ownerMap = {};
+
+    await Promise.all(
+      ownerIds.map(async (id) => {
+        ownerMap[id] = await getOwnerName(id);
+      })
+    );
+
+    const enriched = fields.map((f) => ({
+      ...f,
+      owner_name: ownerMap[f.owner_id] ?? null,
+    }));
+
     res.status(200).json({
       success: true,
       message: "Berhasil mengambil data fields",
-      data: fields,
+      data: enriched,
     });
   } catch (error) {
     console.error("Error", error);
@@ -80,7 +106,15 @@ export const getFieldById = async (req, res) => {
         .json({ success: false, message: "Field tidak ditemukan" });
     }
 
-    res.status(200).json(field);
+    const ownerName = await getOwnerName(field.owner_id);
+
+    res.status(200).json({
+      success: true,
+      data: {
+        ...field,
+        owner_name: ownerName,
+      },
+    });
   } catch (error) {
     console.error("Error", error);
     return res
@@ -120,9 +154,14 @@ export const createFieldController = async (req, res) => {
       status,
     });
 
+    const ownerName = await getOwnerName(ownerId);
+
     res.status(201).json({
       message: "Berhasil membuat field baru",
-      data: newField,
+      data: {
+        ...newField,
+        owner_name: ownerName,
+      },
     });
   } catch (err) {
     console.error("Error", err);
@@ -158,9 +197,14 @@ export const updateFieldController = async (req, res) => {
 
     const updatedField = await updateField(id, req.body);
 
+    const ownerName = await getOwnerName(ownerId);
+
     res.status(200).json({
       message: "Field berhasil diupdate",
-      data: updatedField,
+      data: {
+        ...updatedField,
+        owner_name: ownerName,
+      },
     });
   } catch (err) {
     console.error("Error", err);

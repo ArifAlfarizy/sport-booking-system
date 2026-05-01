@@ -70,18 +70,24 @@ class FieldServiceClient
         }
     }
 
-    public function getField(string $fieldId): ?array
-    {
-        try {
-            $response = Http::timeout($this->timeout)
-                ->get("{$this->baseUrl}/fields/{$fieldId}");
+ public function getField(string $fieldId): ?array
+{
+    try {
+        $response = Http::timeout($this->timeout)
+            ->get("{$this->baseUrl}/fields/{$fieldId}");
 
-            return $response->successful() ? $response->json() : null;
-        } catch (ConnectionException $e) {
-            Log::error("FieldService: getField failed: {$e->getMessage()}");
-            return null;
-        }
+        Log::info('FieldService:getField', [
+            'field_id' => $fieldId,
+            'status'   => $response->status(),
+            'body'     => $response->json(),
+        ]);
+
+       return $response->successful() ? $response->json('data') : null;
+    } catch (ConnectionException $e) {
+        Log::error("FieldService: getField failed: {$e->getMessage()}");
+        return null;
     }
+}
 
     public function getFieldIdsByOwner(string $ownerId): array
     {

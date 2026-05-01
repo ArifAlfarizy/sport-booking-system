@@ -233,6 +233,20 @@
     {
       "name": "Slot Service",
       "item": [
+           {
+          "name": "Get All Slots",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{access_token}}" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/fields/api/slots",
+              "host": ["{{base_url}}"],
+              "path": ["api", "slots"]
+            }
+          }
+        },
         {
           "name": "Get Slots By Field",
           "request": {

@@ -1,24 +1,42 @@
 import db from "../config/db.js";
 import { v4 as uuidv4 } from "uuid";
 
+const SLOT_SELECT = `
+  SELECT 
+    slots.id,
+    slots.field_id,
+    fields.name AS field_name,
+    fields.city AS field_city,
+    fields.type AS field_type,
+    slots.day,
+    slots.start_time,
+    slots.end_time,
+    slots.price,
+    slots.dp_percent,
+    slots.status,
+    slots.created_at
+  FROM slots
+  JOIN fields ON slots.field_id = fields.id
+`;
+
 // GET all slots
 export const findAllSlots = async () => {
-  const [rows] = await db.query("SELECT * FROM slots");
+  const [rows] = await db.query(SLOT_SELECT);
   return rows;
 };
 
 // GET all slots by field + filter
 export const findSlotsByField = async (field_id, day, status) => {
-  let query = "SELECT * FROM slots WHERE field_id = ?";
+  let query = SLOT_SELECT + " WHERE slots.field_id = ?";
   const values = [field_id];
 
   if (day) {
-    query += " AND day = ?";
+    query += " AND slots.day = ?";
     values.push(day);
   }
 
   if (status) {
-    query += " AND status = ?";
+    query += " AND slots.status = ?";
     values.push(status);
   }
 
@@ -28,7 +46,7 @@ export const findSlotsByField = async (field_id, day, status) => {
 
 // GET slot by id
 export const findSlotById = async (id) => {
-  const [rows] = await db.query("SELECT * FROM slots WHERE id = ?", [id]);
+  const [rows] = await db.query(SLOT_SELECT + " WHERE slots.id = ?", [id]);
   return rows[0];
 };
 
@@ -44,7 +62,7 @@ export const createSlot = async (data) => {
     [id, field_id, day, start_time, end_time, price, dp_percent],
   );
 
-  const [rows] = await db.query("SELECT * FROM slots WHERE id = ?", [id]);
+  const [rows] = await db.query(SLOT_SELECT + " WHERE slots.id = ?", [id]);
 
   return rows[0];
 };
@@ -72,7 +90,7 @@ export const updateSlot = async (id, data) => {
     throw new Error("Slot tidak ditemukan");
   }
 
-  const [rows] = await db.query("SELECT * FROM slots WHERE id = ?", [id]);
+  const [rows] = await db.query(SLOT_SELECT + " WHERE slots.id = ?", [id]);
   return rows[0];
 };
 

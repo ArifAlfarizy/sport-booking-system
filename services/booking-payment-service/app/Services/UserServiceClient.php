@@ -24,7 +24,7 @@ class UserServiceClient
             $response = Http::timeout($this->timeout)
                 ->get("{$this->baseUrl}/user/{$userId}");
 
-            return $response->successful() ? $response->json('data') : null;
+           return $response->successful() ? $response->json() : null;
         } catch (ConnectionException $e) {
             Log::error("UserService: getUser({$userId}) failed: {$e->getMessage()}");
             return null;

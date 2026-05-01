@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Http\Requests\Booking\StoreBookingRequest;
 use App\Models\Booking;
 use App\Services\FieldServiceClient;
+use App\Services\UserServiceClient;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -14,12 +15,38 @@ class BookingController extends Controller
 {
     public function __construct(
         private readonly FieldServiceClient $fieldService,
+        private readonly UserServiceClient  $userService,
     ) {}
 
     private function isOwnerOfBooking(Booking $booking, string $ownerId): bool
     {
         $fieldIds = $this->fieldService->getFieldIdsByOwner($ownerId);
         return in_array($booking->field_id, $fieldIds);
+    }
+
+    private function formatBooking(Booking $booking, ?string $userName, ?string $fieldName): array
+    {
+        return [
+            'id'           => $booking->id,
+            'user_id'      => $booking->user_id,
+            'user_name'    => $userName,
+            'slot_id'      => $booking->slot_id,
+            'field_id'     => $booking->field_id,
+            'field_name'   => $fieldName,
+            'play_date'    => $booking->play_date,
+            'start_time'   => $booking->start_time,
+            'end_time'     => $booking->end_time,
+            'total_price'  => $booking->total_price,
+            'dp_amount'    => $booking->dp_amount,
+            'remaining'    => $booking->remaining,
+            'status'       => $booking->status,
+            'notes'        => $booking->notes,
+            'expires_at'   => $booking->expires_at,
+            'confirmed_at' => $booking->confirmed_at,
+            'created_at'   => $booking->created_at,
+            'updated_at'   => $booking->updated_at,
+            'payments'     => $booking->payments,
+        ];
     }
 
     // ── GET /bookings/me ──────────────────────────────────────
@@ -34,9 +61,21 @@ class BookingController extends Controller
             ->orderByDesc('play_date')
             ->paginate(15);
 
+        // Enrich dengan field_name
+        $uniqueFieldIds = $bookings->pluck('field_id')->unique()->values();
+        $fieldMap = $uniqueFieldIds->mapWithKeys(fn($id) => [
+            $id => $this->fieldService->getField($id),
+        ]);
+
+        $enriched = $bookings->through(fn($booking) => $this->formatBooking(
+            $booking,
+            null,
+            $fieldMap[$booking->field_id]['name'] ?? null,
+        ));
+
         return response()->json([
             'success' => true,
-            'data'    => $bookings,
+            'data'    => $enriched,
         ]);
     }
 
@@ -57,10 +96,21 @@ class BookingController extends Controller
             return response()->json(['success' => false, 'message' => 'Forbidden. This booking is not from your field.'], 403);
         }
 
-        return response()->json(['success' => true, 'data' => $booking]);
+        // Enrich dengan user_name dan field_name
+        $user  = $this->userService->getUser($booking->user_id);
+        $field = $this->fieldService->getField($booking->field_id);
+
+        return response()->json([
+            'success' => true,
+            'data'    => $this->formatBooking(
+                $booking,
+                $user['name']  ?? null,
+                $field['name'] ?? null,
+            ),
+        ]);
     }
 
-  
+
     // User: buat booking baru
     public function store(StoreBookingRequest $request): JsonResponse
     {
@@ -243,7 +293,7 @@ class BookingController extends Controller
         ]);
     }
 
-  
+
     // Owner: list semua booking di lapangan miliknya
     public function index(Request $request): JsonResponse
     {
@@ -266,6 +316,24 @@ class BookingController extends Controller
             ->orderByDesc('play_date')
             ->paginate(20);
 
-        return response()->json(['success' => true, 'data' => $bookings]);
+        // Enrich dengan user_name dan field_name
+        $uniqueUserIds  = $bookings->pluck('user_id')->unique()->values();
+        $uniqueFieldIds = $bookings->pluck('field_id')->unique()->values();
+
+        $userMap = $uniqueUserIds->mapWithKeys(fn($id) => [
+            $id => $this->userService->getUser($id),
+        ]);
+
+        $fieldMap = $uniqueFieldIds->mapWithKeys(fn($id) => [
+            $id => $this->fieldService->getField($id),
+        ]);
+
+        $enriched = $bookings->through(fn($booking) => $this->formatBooking(
+            $booking,
+            $userMap[$booking->user_id]['name']   ?? null,
+            $fieldMap[$booking->field_id]['name'] ?? null,
+        ));
+
+        return response()->json(['success' => true, 'data' => $enriched]);
     }
 }
