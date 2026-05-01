@@ -1,7 +1,7 @@
 import express from "express";
 import "dotenv/config";
-import fieldRoute from "./src/routes/fieldRoute.js";
-import slotRouter from "./src/routes/slotRoute.js";
+import fieldRoute from "./routes/fieldRoute.js";
+import slotRouter from "./routes/slotRoute.js";
 const PORT = process.env.PORT || 3002;
 
 const app = express();
