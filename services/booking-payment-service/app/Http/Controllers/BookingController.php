@@ -16,7 +16,14 @@ class BookingController extends Controller
         private readonly FieldServiceClient $fieldService,
     ) {}
 
-    // User: get own booking history
+    private function isOwnerOfBooking(Booking $booking, string $ownerId): bool
+    {
+        $fieldIds = $this->fieldService->getFieldIdsByOwner($ownerId);
+        return in_array($booking->field_id, $fieldIds);
+    }
+
+    // ── GET /bookings/me ──────────────────────────────────────
+    // User: riwayat booking milik sendiri
     public function myBookings(Request $request): JsonResponse
     {
         $userId = $request->input('__auth_user_id');
@@ -33,27 +40,33 @@ class BookingController extends Controller
         ]);
     }
 
-    // GET /bookings/:id
+    // ── GET /bookings/:id ─────────────────────────────────────
     public function show(Request $request, string $id): JsonResponse
     {
         $booking  = Booking::with('payments')->findOrFail($id);
         $userId   = $request->input('__auth_user_id');
         $userRole = $request->input('__auth_user_role');
 
-        // Only the booking owner or owner/admin can view
+        // User hanya bisa lihat booking miliknya sendiri
         if ($userRole === 'user' && ! $booking->isOwnedBy($userId)) {
             return response()->json(['success' => false, 'message' => 'Forbidden.'], 403);
+        }
+
+        // Owner hanya bisa lihat booking di lapangannya
+        if ($userRole === 'owner' && ! $this->isOwnerOfBooking($booking, $userId)) {
+            return response()->json(['success' => false, 'message' => 'Forbidden. This booking is not from your field.'], 403);
         }
 
         return response()->json(['success' => true, 'data' => $booking]);
     }
 
-    // User: create a new booking
+  
+    // User: buat booking baru
     public function store(StoreBookingRequest $request): JsonResponse
     {
         $userId = $request->input('__auth_user_id');
 
-        // 1. Fetch slot from Field Service
+        // 1. Ambil slot dari Field Service
         $slot = $this->fieldService->getSlot($request->slot_id);
         if (! $slot) {
             return response()->json([
@@ -62,7 +75,7 @@ class BookingController extends Controller
             ], 422);
         }
 
-        // 2. Validate slot is available
+        // 2. Pastikan slot masih available
         if ($slot['status'] !== 'available') {
             return response()->json([
                 'success' => false,
@@ -70,11 +83,11 @@ class BookingController extends Controller
             ], 422);
         }
 
-        // 3. Check play_date matches slot's day
-        $playDate  = \Carbon\Carbon::parse($request->play_date);
-        $slotDay   = strtolower($slot['day']);
-        $weekdays  = ['sunday','monday','tuesday','wednesday','thursday','friday','saturday'];
-        $inputDay  = $weekdays[$playDate->dayOfWeek];
+        // 3. Pastikan play_date sesuai dengan hari slot
+        $playDate = \Carbon\Carbon::parse($request->play_date);
+        $slotDay  = strtolower($slot['day']);
+        $weekdays = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+        $inputDay = $weekdays[$playDate->dayOfWeek];
 
         if ($inputDay !== $slotDay) {
             return response()->json([
@@ -83,14 +96,14 @@ class BookingController extends Controller
             ], 422);
         }
 
-        // 4. Calculate amounts
+        // 4. Hitung total, DP, dan sisa
         $totalPrice = $slot['price'];
         $dpAmount   = round($totalPrice * ($slot['dp_percent'] / 100), 2);
         $remaining  = $totalPrice - $dpAmount;
 
         DB::beginTransaction();
         try {
-            // 5. Create booking record
+            // 5. Simpan booking
             $booking = Booking::create([
                 'user_id'     => $userId,
                 'slot_id'     => $request->slot_id,
@@ -106,7 +119,7 @@ class BookingController extends Controller
                 'expires_at'  => now()->addHours(24),
             ]);
 
-            // 6. Lock slot in Field Service
+            // 6. Kunci slot di Field Service
             $locked = $this->fieldService->lockSlot($request->slot_id);
             if (! $locked) {
                 DB::rollBack();
@@ -119,9 +132,10 @@ class BookingController extends Controller
             DB::commit();
 
             return response()->json([
-                'success' => true,
-                'message' => 'Booking created. Please complete your DP payment within 24 hours.',
-                'data'    => $booking,
+                'success'    => true,
+                'message'    => 'Booking created. Please complete your DP payment within 24 hours.',
+                'booking_id' => $booking->id,
+                'data'       => $booking,
             ], 201);
 
         } catch (\Throwable $e) {
@@ -131,15 +145,21 @@ class BookingController extends Controller
         }
     }
 
+
     public function cancel(Request $request, string $id): JsonResponse
     {
         $booking  = Booking::findOrFail($id);
         $userId   = $request->input('__auth_user_id');
         $userRole = $request->input('__auth_user_role');
 
-        // Only the booking owner or admin can cancel
+        // User hanya bisa cancel booking miliknya
         if ($userRole === 'user' && ! $booking->isOwnedBy($userId)) {
             return response()->json(['success' => false, 'message' => 'Forbidden.'], 403);
+        }
+
+        // Owner hanya bisa cancel booking di lapangannya sendiri
+        if ($userRole === 'owner' && ! $this->isOwnerOfBooking($booking, $userId)) {
+            return response()->json(['success' => false, 'message' => 'Forbidden. This booking is not from your field.'], 403);
         }
 
         if (! $booking->isCancellable()) {
@@ -167,10 +187,21 @@ class BookingController extends Controller
         }
     }
 
-    // Owner: mark booking as done after play session ends
+
+    // Owner: tandai booking selesai setelah sesi main berakhir
     public function confirm(Request $request, string $id): JsonResponse
     {
-        $booking = Booking::findOrFail($id);
+        $booking  = Booking::findOrFail($id);
+        $ownerId  = $request->input('__auth_user_id');
+        $userRole = $request->input('__auth_user_role');
+
+        // Owner hanya bisa confirm booking di lapangannya sendiri
+        if ($userRole === 'owner' && ! $this->isOwnerOfBooking($booking, $ownerId)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Forbidden. This booking is not from your field.',
+            ], 403);
+        }
 
         if ($booking->status !== 'paid') {
             return response()->json([
@@ -184,7 +215,6 @@ class BookingController extends Controller
             'confirmed_at' => now(),
         ]);
 
-        // Unlock slot so it can be booked again for the next week
         $this->fieldService->unlockSlot($booking->slot_id);
 
         return response()->json([
@@ -194,29 +224,39 @@ class BookingController extends Controller
         ]);
     }
 
-  public function expireAll(): JsonResponse
+
+    // Admin: manual trigger auto-expire
+    public function expireAll(): JsonResponse
     {
         $expired = Booking::expired()->get();
- 
+
         foreach ($expired as $booking) {
             DB::transaction(function () use ($booking) {
                 $booking->update(['status' => 'cancelled']);
                 $this->fieldService->unlockSlot($booking->slot_id);
             });
         }
- 
+
         return response()->json([
             'success' => true,
             'message' => "{$expired->count()} booking(s) expired and cancelled.",
         ]);
     }
 
-
-    // Owner: list all bookings across their fields
+  
+    // Owner: list semua booking di lapangan miliknya
     public function index(Request $request): JsonResponse
     {
         $ownerId  = $request->input('__auth_user_id');
         $fieldIds = $this->fieldService->getFieldIdsByOwner($ownerId);
+
+        if (empty($fieldIds)) {
+            return response()->json([
+                'success' => true,
+                'message' => 'You have no fields registered.',
+                'data'    => [],
+            ]);
+        }
 
         $bookings = Booking::whereIn('field_id', $fieldIds)
             ->when($request->query('status'),   fn($q, $s) => $q->byStatus($s))

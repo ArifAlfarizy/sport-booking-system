@@ -90,7 +90,9 @@ class FieldServiceClient
                 ->get("{$this->baseUrl}/fields", ['owner_id' => $ownerId]);
 
             if ($response->successful()) {
-                return collect($response->json())->pluck('id')->toArray();
+               return collect($response->json('data'))
+    ->pluck('id')
+    ->toArray();
             }
 
             return [];

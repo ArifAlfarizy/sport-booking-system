@@ -20,6 +20,15 @@ class DashboardController extends Controller
         $ownerId  = $request->input('__auth_user_id');
         $fieldIds = $this->fieldService->getFieldIdsByOwner($ownerId);
 
+         if (empty($fieldIds)) {
+        return response()->json([
+            'debug'    => true,
+            'owner_id' => $ownerId,
+            'field_ids'=> $fieldIds,
+            'message'  => 'No fields found for this owner',
+        ]);
+    }
+
         $bookings = Booking::whereIn('field_id', $fieldIds)
             ->whereDate('play_date', today())
             ->with('payments')
@@ -36,7 +45,6 @@ class DashboardController extends Controller
         ]);
     }
     
-    // ── GET /dashboard/revenue ────────────────────────────────
     // Owner: revenue report grouped by date
     // Query params: ?from=2026-05-01 &to=2026-05-31 &field_id=xxx
     public function revenue(Request $request): JsonResponse

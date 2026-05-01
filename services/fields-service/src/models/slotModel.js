@@ -1,11 +1,11 @@
 import db from "../config/db.js";
+import { v4 as uuidv4 } from "uuid";
 
 // GET all slots
-export const findAllSlots = async() => {
+export const findAllSlots = async () => {
   const [rows] = await db.query("SELECT * FROM slots");
   return rows;
-}
-
+};
 
 // GET all slots by field + filter
 export const findSlotsByField = async (field_id, day, status) => {
@@ -36,15 +36,15 @@ export const findSlotById = async (id) => {
 export const createSlot = async (data) => {
   const { field_id, day, start_time, end_time, price, dp_percent } = data;
 
-  const [result] = await db.query(
-    `INSERT INTO slots (field_id, day, start_time, end_time, price, dp_percent, status)
-     VALUES (?, ?, ?, ?, ?, ?, 'available')`,
-    [field_id, day, start_time, end_time, price, dp_percent],
+  const id = uuidv4();
+
+  await db.query(
+    `INSERT INTO slots (id, field_id, day, start_time, end_time, price, dp_percent, status)
+     VALUES (?, ?, ?, ?, ?, ?, ?, 'available')`,
+    [id, field_id, day, start_time, end_time, price, dp_percent],
   );
 
-  const [rows] = await db.query("SELECT * FROM slots WHERE id = ?", [
-    result.insertId,
-  ]);
+  const [rows] = await db.query("SELECT * FROM slots WHERE id = ?", [id]);
 
   return rows[0];
 };

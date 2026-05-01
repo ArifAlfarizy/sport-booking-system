@@ -70,9 +70,9 @@ export const createSlotController = async (req, res) => {
     const field_id = req.params.id;
 
     // Validasi field milik owner ini bisa ditambahkan jika ada findFieldById di service ini
-    const { day, start_time, end_time, price, status } = req.body;
+    const { day, start_time, end_time, price, dp_percent, status } = req.body;
 
-    if (!day || !start_time || !end_time || !price) {
+    if (!day || !start_time || !end_time || !dp_percent || !price) {
       return res.status(400).json({
         message: "Field wajib diisi: day, start_time, end_time, price",
       });
@@ -84,6 +84,7 @@ export const createSlotController = async (req, res) => {
       start_time,
       end_time,
       price,
+      dp_percent,
       status,
     });
 

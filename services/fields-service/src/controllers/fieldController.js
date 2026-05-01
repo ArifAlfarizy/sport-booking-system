@@ -15,6 +15,14 @@ import {
 
 export const getAllFields = async (req, res) => {
   try {
+    const role = req.headers["x-user-role"];
+
+    let ownerId = null;
+
+    if (role === "owner") {
+      ownerId = req.headers["x-user-id"];
+    }
+
     const { city, type, status, minPrice, maxPrice } = req.query;
 
     if (minPrice && isNaN(minPrice)) {
@@ -36,6 +44,8 @@ export const getAllFields = async (req, res) => {
     if (city) filters.city = city;
     if (type) filters.type = type;
     if (status) filters.status = status;
+
+    if (ownerId) filters.owner_Id = ownerId;
 
     if (minPrice || maxPrice) {
       filters.price = {};
@@ -65,13 +75,17 @@ export const getFieldById = async (req, res) => {
     const field = await findFieldById(id);
 
     if (!field) {
-      return res.status(404).json({ success: false, message: "Field tidak ditemukan" });
+      return res
+        .status(404)
+        .json({ success: false, message: "Field tidak ditemukan" });
     }
 
     res.status(200).json(field);
   } catch (error) {
     console.error("Error", error);
-    return res.status(500).json({ success: false, message: "Internal Server Error" });
+    return res
+      .status(500)
+      .json({ success: false, message: "Internal Server Error" });
   }
 };
 
@@ -80,7 +94,9 @@ export const createFieldController = async (req, res) => {
     const role = req.headers["x-user-role"];
 
     if (role === "user") {
-      return res.status(403).json({ message: "Forbidden. Only owners can create field" });
+      return res
+        .status(403)
+        .json({ message: "Forbidden. Only owners can create field" });
     }
 
     const ownerId = req.headers["x-user-id"];
@@ -122,7 +138,9 @@ export const updateFieldController = async (req, res) => {
     console.log(role);
 
     if (role === "user") {
-      return res.status(403).json({ message: "Forbidden. Only owners can create field" });
+      return res
+        .status(403)
+        .json({ message: "Forbidden. Only owners can create field" });
     }
 
     const ownerId = req.headers["x-user-id"];
@@ -157,7 +175,9 @@ export const deleteFieldController = async (req, res) => {
     const role = req.headers["x-user-role"];
 
     if (role === "user") {
-      return res.status(403).json({ message: "Forbidden. Only owner can delete a field" });
+      return res
+        .status(403)
+        .json({ message: "Forbidden. Only owner can delete a field" });
     }
 
     const ownerId = req.headers["x-user-id"];

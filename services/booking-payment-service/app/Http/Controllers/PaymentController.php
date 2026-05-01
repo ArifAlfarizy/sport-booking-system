@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Http\Requests\Payment\StorePaymentRequest;
 use App\Models\Booking;
 use App\Models\Payment;
+use App\Services\FieldServiceClient;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -12,17 +13,29 @@ use Illuminate\Support\Facades\Log;
 
 class PaymentController extends Controller
 {
+    public function __construct(
+        private readonly FieldServiceClient $fieldService,
+    ) {}
+
+    private function isOwnerOfBooking(Booking $booking, string $ownerId): bool
+    {
+        $fieldIds = $this->fieldService->getFieldIdsByOwner($ownerId);
+        return in_array($booking->field_id, $fieldIds);
+    }
+
+
+    // User: upload bukti pembayaran (dp atau settlement)
     public function store(StorePaymentRequest $request): JsonResponse
     {
         $userId  = $request->input('__auth_user_id');
         $booking = Booking::findOrFail($request->booking_id);
 
-        // Only the booking owner can upload payment
+        // Hanya pemilik booking yang bisa upload pembayaran
         if (! $booking->isOwnedBy($userId)) {
             return response()->json(['success' => false, 'message' => 'Forbidden.'], 403);
         }
 
-        // Validate payment type vs booking status
+        // Validasi tipe pembayaran vs status booking
         if ($request->type === 'dp' && $booking->status !== 'pending_dp') {
             return response()->json([
                 'success' => false,
@@ -37,7 +50,7 @@ class PaymentController extends Controller
             ], 422);
         }
 
-        // Prevent duplicate pending payment for the same type
+        // Cegah duplicate payment yang masih pending untuk tipe yang sama
         $existing = Payment::where('booking_id', $booking->id)
             ->where('type', $request->type)
             ->where('status', 'pending')
@@ -66,15 +79,24 @@ class PaymentController extends Controller
         ], 201);
     }
 
-    // Get all payments for a booking
+    // Lihat semua pembayaran untuk satu booking
     public function index(Request $request, string $bookingId): JsonResponse
     {
         $booking  = Booking::findOrFail($bookingId);
         $userId   = $request->input('__auth_user_id');
         $userRole = $request->input('__auth_user_role');
 
+        // User hanya bisa lihat payment booking miliknya
         if ($userRole === 'user' && ! $booking->isOwnedBy($userId)) {
             return response()->json(['success' => false, 'message' => 'Forbidden.'], 403);
+        }
+
+        // Owner hanya bisa lihat payment booking di lapangannya
+        if ($userRole === 'owner' && ! $this->isOwnerOfBooking($booking, $userId)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Forbidden. This booking is not from your field.',
+            ], 403);
         }
 
         $payments = Payment::where('booking_id', $bookingId)
@@ -87,11 +109,21 @@ class PaymentController extends Controller
         ]);
     }
 
-    // Owner: verify payment and update booking status accordingly
+   
+    // Owner: verifikasi pembayaran — hanya untuk lapangan miliknya
     public function verify(Request $request, string $id): JsonResponse
     {
         $payment  = Payment::with('booking')->findOrFail($id);
         $ownerId  = $request->input('__auth_user_id');
+        $userRole = $request->input('__auth_user_role');
+
+        // Validasi kepemilikan lapangan — owner tidak bisa verifikasi booking lapangan orang lain
+        if ($userRole === 'owner' && ! $this->isOwnerOfBooking($payment->booking, $ownerId)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Forbidden. This payment is not from your field.',
+            ], 403);
+        }
 
         if ($payment->status !== 'pending') {
             return response()->json([
@@ -102,15 +134,14 @@ class PaymentController extends Controller
 
         DB::beginTransaction();
         try {
-            // Mark payment as verified
             $payment->update([
                 'status'      => 'verified',
                 'verified_by' => $ownerId,
                 'verified_at' => now(),
             ]);
 
-            $booking    = $payment->booking;
-            $newStatus  = match ($payment->type) {
+            $booking   = $payment->booking;
+            $newStatus = match ($payment->type) {
                 'dp'         => 'dp_paid',
                 'settlement' => 'paid',
             };
@@ -140,15 +171,25 @@ class PaymentController extends Controller
         }
     }
 
-   
-    // Owner: reject payment with a reason
+
+    // Owner: tolak pembayaran — hanya untuk lapangan miliknya
     public function reject(Request $request, string $id): JsonResponse
     {
         $request->validate([
             'reject_note' => ['required', 'string', 'max:500'],
         ]);
 
-        $payment = Payment::findOrFail($id);
+        $payment  = Payment::with('booking')->findOrFail($id);
+        $ownerId  = $request->input('__auth_user_id');
+        $userRole = $request->input('__auth_user_role');
+
+        // Validasi kepemilikan lapangan
+        if ($userRole === 'owner' && ! $this->isOwnerOfBooking($payment->booking, $ownerId)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Forbidden. This payment is not from your field.',
+            ], 403);
+        }
 
         if ($payment->status !== 'pending') {
             return response()->json([
