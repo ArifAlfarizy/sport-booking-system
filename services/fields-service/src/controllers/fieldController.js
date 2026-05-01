@@ -15,14 +15,47 @@ import {
 
 export const getAllFields = async (req, res) => {
   try {
-    const fields = await findAllFields();
+    const { city, type, status, minPrice, maxPrice } = req.query;
 
-    res.status(200).json(fields);
+    if (minPrice && isNaN(minPrice)) {
+      return res.status(400).json({
+        success: false,
+        message: "minPrice harus berupa angka",
+      });
+    }
+
+    if (maxPrice && isNaN(maxPrice)) {
+      return res.status(400).json({
+        success: false,
+        message: "maxPrice harus berupa angka",
+      });
+    }
+
+    const filters = {};
+
+    if (city) filters.city = city;
+    if (type) filters.type = type;
+    if (status) filters.status = status;
+
+    if (minPrice || maxPrice) {
+      filters.price = {};
+      if (minPrice) filters.price.gte = Number(minPrice);
+      if (maxPrice) filters.price.lte = Number(maxPrice);
+    }
+
+    const fields = await findAllFields(filters);
+
+    res.status(200).json({
+      success: true,
+      message: "Berhasil mengambil data fields",
+      data: fields,
+    });
   } catch (error) {
     console.error("Error", error);
-    return res
-      .status(500)
-      .json({ success: false, message: "Internal Server Error" });
+    return res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+    });
   }
 };
 
