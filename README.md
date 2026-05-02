@@ -1,5 +1,6 @@
 # UTS PPLOS B — 2410511098 M. Arif Alfarizy
-# Link presentasi : https://youtu.be/GnoDTXqCNN0
+# Link presentasi part 1 :  https://youtu.be/huGoCANVHxI
+# Link presentasi part 2 :  https://youtu.be/LYKbA7Wrjnc
 
 ## Struktur Project
 
