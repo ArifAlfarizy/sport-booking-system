@@ -109,7 +109,10 @@ INTERNAL_GATEWAY_KEY=ALIT123
 
 Lalu generate app key untuk Laravel:
 ```bash
+
 cd services/booking-payment-service
+*jangan lupa composer install jika belum
+
 php artisan key:generate
 ```
 
