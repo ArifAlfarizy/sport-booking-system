@@ -25,8 +25,8 @@ services/
 ### 1. Clone repository
 
 ```bash
-git clone <url-repo>
-cd <nama-folder>
+git clone https://github.com/ArifAlfarizy/uts-pplos-b-2410511098.git
+cd uts-pplos-b-2410511098
 ```
 
 ### 2. Install dependencies semua service
