@@ -1,3 +1,4 @@
+
 import {
   generateAccessToken,
   generateRefreshToken,
@@ -15,17 +16,27 @@ export const googleCallback = async (req, res) => {
 
     res.cookie("refreshToken", refreshToken, {
       httpOnly: true,
-      secure: false, 
+      secure: false,
       sameSite: "lax",
     });
+
     return res.status(200).json({
       message: "Login dengan Google berhasil",
-      accessToken,
-      refreshToken,
+      data: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        photo: user.photo, // atau user.avatar
+      },
+      tokens: {
+        accessToken,
+      },
     });
   } catch (err) {
     console.error("googleCallback error:", err);
-    return res.status(500).json({ message: "Terjadi kesalahan server" });
+    return res.status(500).json({
+      message: "Terjadi kesalahan server",
+    });
   }
 };
 

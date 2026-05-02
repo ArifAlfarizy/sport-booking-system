@@ -19,7 +19,7 @@ export const findAllFields = async (filters = {}) => {
   }
   if (filters.owner_id) {
     conditions.push("owner_id = ?");
-    values.push(filters.owner_Id);
+    values.push(filters.owner_id);
   }
   if (filters.price?.gte !== undefined) {
     conditions.push("price >= ?");

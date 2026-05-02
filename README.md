@@ -51,7 +51,7 @@ cd ../booking-payment-service && composer install
 ```env
 JWT_ACCESS_SECRET="Alit"
 JWT_REFRESH_SECRET="Reja"
-INTERNAL_GATEWAY_KEY=Alit123
+INTERNAL_GATEWAY_KEY=ALIT123
 ```
 
 **services/auth-service/.env**
@@ -66,7 +66,7 @@ JWT_ACCESS_SECRET="Alit"
 JWT_REFRESH_SECRET="Reja"
 GOOGLE_CLIENT_ID=your_google_client_id
 GOOGLE_CLIENT_SECRET=your_google_client_secret
-GOOGLE_CALLBACK_URL=http://localhost:3001/api/auth/google/callback
+GOOGLE_CALLBACK_URL=http://localhost:3001/auth/google/callback
 NODE_ENV=development
 ```
 
@@ -77,20 +77,32 @@ DB_HOST=localhost
 DB_PORT=3306
 DB_USER=root
 DB_PASSWORD=
-DB_NAME=fields_db
+DB_NAME=fields_slot_db
+AUTH_SERVICE_URL=http://localhost:3001
 JWT_ACCESS_SECRET="Alit"
 ```
 
 **services/booking-payment-service/.env**
 ```env
-APP_KEY=
+APP_NAME=Bookingpayment
+APP_ENV=local
+APP_KEY=                    # diisi setelah php artisan key:generate
+APP_DEBUG=true
+APP_TIMEZONE=Asia/Jakarta
+APP_URL=http://localhost:3003
+
 DB_CONNECTION=mysql
-DB_HOST=localhost
+DB_HOST=127.0.0.1
 DB_PORT=3306
 DB_DATABASE=booking_db
 DB_USERNAME=root
 DB_PASSWORD=
-INTERNAL_GATEWAY_KEY=Alit123
+
+USER_SERVICE_URL=http://localhost:3001/api
+FIELD_SERVICE_URL=http://localhost:3002/api
+
+JWT_SECRET="Alit"
+INTERNAL_GATEWAY_KEY=ALIT123
 ```
 
 Lalu generate app key untuk Laravel:
@@ -105,37 +117,12 @@ php artisan key:generate
 
 Semua perintah dijalankan dari folder `gateway`.
 
-### Migrate semua database
-
 ```bash
-npm run migrate
+npm run migrate   # migrate semua database
+npm run seed      # seed semua database
+npm run setup     # migrate + seed sekaligus
+npm run dev       # jalankan semua service
 ```
-
-Membuat database dan tabel untuk semua service sekaligus.
-
-### Seed semua database
-
-```bash
-npm run seed
-```
-
-Mengisi data awal untuk semua service sekaligus.
-
-### Migrate + Seed sekaligus
-
-```bash
-npm run setup
-```
-
-Menjalankan migrate lalu seed secara otomatis.
-
-### Jalankan semua service
-
-```bash
-npm run dev
-```
-
-Semua service akan berjalan bersamaan:
 
 | Service | Port |
 |---|---|
@@ -148,8 +135,11 @@ Semua service akan berjalan bersamaan:
 
 ## Catatan Penting
 
-- `JWT_ACCESS_SECRET` dan `JWT_REFRESH_SECRET` harus **sama** di semua service
-- `INTERNAL_GATEWAY_KEY` harus **sama** di gateway dan booking-payment-service
+- `JWT_ACCESS_SECRET` dan `JWT_REFRESH_SECRET` harus **sama** di gateway, auth-service, dan fields-service
+- `JWT_SECRET` di booking-payment-service harus bernilai **sama** dengan `JWT_ACCESS_SECRET` di service lain
+- `INTERNAL_GATEWAY_KEY` harus **sama** di gateway dan booking-payment-service (case-sensitive: `ALIT123`)
+- `DB_NAME` fields-service adalah `fields_slot_db`, bukan `fields_db`
+- `AUTH_SERVICE_URL` di fields-service wajib diisi agar enrich owner name berjalan
 - Pastikan MySQL sudah berjalan sebelum menjalankan migrate
 
 ---
@@ -162,218 +152,75 @@ Base URL: `http://localhost:3000`
 
 ---
 
-### Auth Service — `services/auth-service` (port 3001)
+### Auth Service
 
 | Method | Endpoint | Deskripsi |
 |--------|----------|-----------|
-| `POST` | `/api/auth/register` | Daftar akun baru (role: `user` atau `owner`) |
+| `POST` | `/api/auth/register` | Daftar akun baru (`role`: `user` atau `owner`) |
 | `POST` | `/api/auth/login` | Login — response menyertakan `accessToken` |
 | `POST` | `/api/auth/logout` | Logout sesi aktif |
-| `POST` | `/api/auth/refresh` | Perbarui access token menggunakan refresh token |
-| `GET`  | `/api/oauth/google` | Redirect ke Google OAuth (buka di browser) |
+| `POST` | `/api/auth/refresh` | Perbarui access token |
+| `GET`  | `/api/oauth/google` | Redirect ke Google OAuth |
 | `GET`  | `/api/oauth/google/failure` | Callback OAuth ketika login Google gagal |
 
-**Contoh body register:**
-```json
-{
-  "name": "John Doe",
-  "email": "john@example.com",
-  "password": "password123",
-  "role": "user"
-}
-```
-
----
-
-### User Service — `services/auth-service` (port 3001)
+### User Service
 
 | Method | Endpoint | Akses | Deskripsi |
 |--------|----------|-------|-----------|
-| `GET`    | `/api/user/:user_id` | 🔒 Semua role | Ambil data user berdasarkan ID |
-| `PATCH`  | `/api/user/:user_id` | 🔒 Semua role | Update data user (misal: `name`) |
+| `GET`    | `/api/user/:user_id` | 🔒 Semua role | Ambil data user |
+| `PATCH`  | `/api/user/:user_id` | 🔒 Semua role | Update data user |
 | `DELETE` | `/api/user/:user_id` | 🔒 Semua role | Hapus akun user |
 
----
-
-### Field Service — `services/fields-service` (port 3002)
+### Field Service
 
 | Method | Endpoint | Akses | Deskripsi |
 |--------|----------|-------|-----------|
 | `GET`    | `/api/fields` | 🔒 Semua role | List semua lapangan |
 | `GET`    | `/api/fields/:field_id` | 🔒 Semua role | Detail satu lapangan |
 | `POST`   | `/api/fields` | 🔒 Owner | Buat lapangan baru |
-| `PATCH`  | `/api/fields/:field_id` | 🔒 Owner | Update data lapangan |
+| `PATCH`  | `/api/fields/:field_id` | 🔒 Owner | Update lapangan |
 | `DELETE` | `/api/fields/:field_id` | 🔒 Owner | Hapus lapangan |
 
-**Contoh body create field:**
-```json
-{
-  "name": "Lapangan Futsal A",
-  "type": "futsal",
-  "address": "Jl. Sudirman No. 10",
-  "city": "Jakarta",
-  "status": "active"
-}
-```
-
----
-
-### Slot Service — `services/fields-service` (port 3002)
+### Slot Service
 
 | Method | Endpoint | Akses | Deskripsi |
 |--------|----------|-------|-----------|
-| `GET`   | `/api/slots` | 🔒 Semua role | Semua slot dengan filter & pagination (lihat detail di bawah) |
+| `GET`   | `/api/slots` | 🔒 Semua role | Semua slot (filter & pagination) |
 | `GET`   | `/api/fields/:field_id/slots` | 🔒 Semua role | Slot milik lapangan tertentu |
 | `GET`   | `/api/slots/:slot_id` | 🔒 Semua role | Detail satu slot |
 | `POST`  | `/api/fields/:field_id/slots` | 🔒 Owner | Buat slot baru |
-| `PATCH` | `/api/slots/:slot_id` | 🔒 Owner | Update slot (harga, status) |
-| `PATCH` | `/api/slots/:slot_id/status` | Internal | Update status slot (dipanggil dari booking service) |
+| `PATCH` | `/api/slots/:slot_id` | 🔒 Owner | Update slot |
+| `PATCH` | `/api/slots/:slot_id/status` | Internal | Update status slot |
 | `DELETE`| `/api/slots/:slot_id` | 🔒 Owner | Hapus slot |
 
-**Query params `GET /api/slots` — filter & pagination:**
-
-| Param | Tipe | Deskripsi |
-|-------|------|-----------|
-| `day` | string | Filter hari: `monday`, `tuesday`, `wednesday`, `thursday`, `friday`, `saturday`, `sunday` |
-| `status` | string | Filter status slot: `available` atau `booked` |
-| `city` | string | Filter berdasarkan kota lapangan |
-| `type` | string | Filter berdasarkan tipe lapangan (misal: `futsal`, `badminton`) |
-| `field_id` | string | Filter berdasarkan lapangan tertentu |
-| `minPrice` | number | Harga minimum slot |
-| `maxPrice` | number | Harga maksimum slot |
-| `page` | number | Halaman (default: `1`) |
-| `limit` | number | Jumlah item per halaman (default: `10`, maks: `100`) |
-
-**Contoh response `GET /api/slots`:**
-```json
-{
-  "success": true,
-  "meta": {
-    "total": 42,
-    "page": 1,
-    "limit": 10,
-    "totalPages": 5,
-    "hasNextPage": true,
-    "hasPrevPage": false
-  },
-  "data": [ ... ]
-}
-```
-
-**Query params `GET /api/fields/:field_id/slots`:**
-
-| Param | Tipe | Deskripsi |
-|-------|------|-----------|
-| `day` | string | Filter hari |
-| `status` | string | Filter status: `available` atau `booked` |
-
-**Contoh body create slot:**
-```json
-{
-  "day": "monday",
-  "start_time": "08:00",
-  "end_time": "09:00",
-  "price": 150000,
-  "dp_percent": 50,
-  "status": "available"
-}
-```
-
----
-
-### Booking Service — `services/booking-payment-service` (port 3003)
+### Booking Service
 
 | Method | Endpoint | Akses | Deskripsi |
 |--------|----------|-------|-----------|
-| `GET`  | `/api/bookings/me` | 🔒 User | Booking milik user yang sedang login |
-| `GET`  | `/api/bookings` | 🔒 Owner/Admin | Semua booking (bisa difilter) |
-| `GET`  | `/api/bookings/:booking_id` | 🔒 Semua role | Detail satu booking |
+| `GET`  | `/api/bookings/me` | 🔒 User | Booking milik user login |
+| `GET`  | `/api/bookings` | 🔒 Owner/Admin | Semua booking |
+| `GET`  | `/api/bookings/:booking_id` | 🔒 Semua role | Detail booking |
 | `POST` | `/api/bookings` | 🔒 User | Buat booking baru |
 | `PUT`  | `/api/bookings/:booking_id/cancel` | 🔒 User/Admin | Batalkan booking |
-| `PUT`  | `/api/bookings/:booking_id/confirm` | 🔒 Owner | Konfirmasi booking sebagai selesai |
-| `PUT`  | `/api/bookings/expire` | 🔒 Admin | Expire semua booking yang melewati batas waktu |
+| `PUT`  | `/api/bookings/:booking_id/confirm` | 🔒 Owner | Konfirmasi booking selesai |
+| `PUT`  | `/api/bookings/expire` | 🔒 Admin | Expire booking kadaluarsa |
 
-**Query params `GET /api/bookings/me`:**
-
-| Param | Nilai | Deskripsi |
-|-------|-------|-----------|
-| `status` | `pending_dp`, `dp_paid`, `paid`, `cancelled`, `done` | Filter status booking |
-
-**Query params `GET /api/bookings`:**
-
-| Param | Deskripsi |
-|-------|-----------|
-| `status` | Filter status booking |
-| `field_id` | Filter berdasarkan lapangan |
-| `date` | Filter berdasarkan tanggal main (format: `YYYY-MM-DD`) |
-
-**Contoh body create booking:**
-```json
-{
-  "slot_id": "{{slot_id}}",
-  "field_id": "{{field_id}}",
-  "play_date": "2026-05-05",
-  "notes": "Please prepare the field"
-}
-```
-
----
-
-### Payment Service — `services/booking-payment-service` (port 3003)
+### Payment Service
 
 | Method | Endpoint | Akses | Deskripsi |
 |--------|----------|-------|-----------|
-| `POST` | `/api/payments` | 🔒 User | Upload bukti pembayaran (DP atau pelunasan) |
-| `GET`  | `/api/payments/:booking_id` | 🔒 Semua role | Riwayat pembayaran per booking |
+| `POST` | `/api/payments` | 🔒 User | Upload bukti pembayaran |
+| `GET`  | `/api/payments/:booking_id` | 🔒 Semua role | Riwayat pembayaran |
 | `PUT`  | `/api/payments/:payment_id/verify` | 🔒 Owner/Admin | Verifikasi pembayaran |
 | `PUT`  | `/api/payments/:payment_id/reject` | 🔒 Owner/Admin | Tolak pembayaran |
 
-**Contoh body upload DP:**
-```json
-{
-  "booking_id": "{{booking_id}}",
-  "type": "dp",
-  "amount": 75000,
-  "method": "transfer",
-  "proof_url": "https://storage.example.com/proof/bukti_transfer.jpg"
-}
-```
-
-**Contoh body upload pelunasan:**
-```json
-{
-  "booking_id": "{{booking_id}}",
-  "type": "settlement",
-  "amount": 75000,
-  "method": "transfer",
-  "proof_url": "https://storage.example.com/proof/settlement.jpg"
-}
-```
-
-**Contoh body tolak pembayaran:**
-```json
-{
-  "reject_note": "Bukti transfer tidak jelas, mohon upload ulang"
-}
-```
-
----
-
-### Dashboard Service — `services/booking-payment-service` (port 3003)
+### Dashboard Service
 
 | Method | Endpoint | Akses | Deskripsi |
 |--------|----------|-------|-----------|
-| `GET` | `/api/dashboard/today` | 🔒 Owner/Admin | Daftar booking hari ini |
-| `GET` | `/api/dashboard/revenue` | 🔒 Owner/Admin | Laporan pendapatan berdasarkan rentang tanggal |
-| `GET` | `/api/dashboard/pending` | 🔒 Owner/Admin | Daftar pembayaran yang menunggu verifikasi |
-
-**Query params `GET /api/dashboard/revenue`:**
-
-| Param | Tipe | Deskripsi |
-|-------|------|-----------|
-| `from` | string | Tanggal mulai (format: `YYYY-MM-DD`) |
-| `to` | string | Tanggal akhir (format: `YYYY-MM-DD`) |
-| `field_id` | string | Opsional — filter berdasarkan lapangan tertentu |
+| `GET` | `/api/dashboard/today` | 🔒 Owner/Admin | Booking hari ini |
+| `GET` | `/api/dashboard/revenue` | 🔒 Owner/Admin | Laporan pendapatan |
+| `GET` | `/api/dashboard/pending` | 🔒 Owner/Admin | Pembayaran pending verifikasi |
 
 ---
 
@@ -391,3 +238,154 @@ Base URL: `http://localhost:3000`
 9. Owner verifikasi PUT  /api/payments/:id/verify
 10. Owner konfirmasi PUT /api/bookings/:id/confirm
 ```
+
+---
+
+## Hasil Testing Endpoint (Postman)
+
+> Semua screenshot ada di folder `postman/screenshots/`.
+
+---
+
+### Auth Service
+
+#### POST /api/auth/register — sebagai user
+![POST register (user)](postman/screenshots/auth-service/POST%20register%20(user).png)
+
+#### POST /api/auth/register — sebagai owner
+![POST register (owner)](postman/screenshots/auth-service/POST%20register%20(owner).png)
+
+#### POST /api/auth/login
+![POST login](postman/screenshots/auth-service/POST%20login.png)
+
+#### POST /api/auth/logout
+![POST logout](postman/screenshots/auth-service/POST%20logout.png)
+
+#### POST /api/auth/refresh
+![POST refreshToken](postman/screenshots/auth-service/POST%20refreshToken.png)
+
+#### GET /api/oauth/google
+![GET loginGoogle](postman/screenshots/auth-service/GET%20loginGoogle.png)
+
+#### GET /api/oauth/google/failure
+![GET loginGoogle failed](postman/screenshots/auth-service/GET%20loginGoogle%20failed.png)
+
+---
+
+### User Service
+
+#### GET /api/user/:user_id
+![GET userById](postman/screenshots/user-service/GET%20userById.png)
+
+#### PATCH /api/user/:user_id
+![PATCH updateUser](postman/screenshots/user-service/PATCH%20updateUser.png)
+
+#### DELETE /api/user/:user_id
+![DELETE user](postman/screenshots/user-service/DELETE%20user.png)
+
+---
+
+### Field Service
+
+#### GET /api/fields — sebagai owner (hanya lapangan miliknya)
+![GET allField (owner)](postman/screenshots/field-service/GET%20allField%20(owner).png)
+
+#### GET /api/fields — sebagai user (semua lapangan)
+![GET allFields (user)](postman/screenshots/field-service/GET%20allFields%20(user).png)
+
+#### GET /api/fields/:field_id
+![GET fieldById](postman/screenshots/field-service/GET%20fieldById.png)
+
+#### POST /api/fields — sebagai owner
+![POST field (owner)](postman/screenshots/field-service/POST%20field%20(owner).png)
+
+#### PATCH /api/fields/:field_id — sebagai owner
+![PATCH updateField (owner)](postman/screenshots/field-service/PATCH%20updateField%20(owner).png)
+
+---
+
+### Slot Service
+
+#### GET /api/slots
+![GET allSlots](postman/screenshots/slot-service/GET%20allSlots.png)
+
+#### GET /api/slots — dengan pagination
+![GET allSlots pagination](postman/screenshots/slot-service/GET%20allSlots%20(pagination).png)
+
+#### GET /api/slots — dengan pagination + filter
+![GET allSlots pagination + filter](postman/screenshots/slot-service/GET%20allSlots%20(pagination%20+%20filter).png)
+
+#### GET /api/fields/:field_id/slots
+![GET slotsByField](postman/screenshots/slot-service/GET%20slotsByField.png)
+
+#### GET /api/slots/:slot_id
+![GET slotById](postman/screenshots/slot-service/GET%20slotById.png)
+
+#### POST /api/fields/:field_id/slots — owner pemilik lapangan ✅
+![POST createSlot (owner)](postman/screenshots/slot-service/POST%20createSlot%20(owner).png)
+
+#### POST /api/fields/:field_id/slots — owner lain, bukan pemilik ❌ 403
+![POST createSlot (wrongOwner)](postman/screenshots/slot-service/POST%20createSlot%20(wrongOwner).png)
+
+#### PATCH /api/slots/:slot_id — owner pemilik lapangan ✅
+![PATCH updateSlot](postman/screenshots/slot-service/PATCH%20updateSlot.png)
+
+#### PATCH /api/slots/:slot_id — owner lain, bukan pemilik ❌ 403
+![PATCH updateSlot (wrongOwner)](postman/screenshots/slot-service/PATCH%20updateSlot%20(wrongOwner).png)
+
+#### PATCH /api/slots/:slot_id/status — internal dari booking service
+![PATCH updateSlot (internal)](postman/screenshots/slot-service/PATCH%20updateSlot%20(internal).png)
+
+#### DELETE /api/slots/:slot_id — owner pemilik lapangan ✅
+![DELETE deleteSlot (owner)](postman/screenshots/slot-service/DELETE%20deleteSlot%20(owner).png)
+
+#### DELETE /api/slots/:slot_id — owner lain, bukan pemilik ❌ 403
+![DELETE deleteSlot (wrongOwner)](postman/screenshots/slot-service/DELETE%20deleteSlot%20(wrongOwner).png)
+
+---
+
+### Booking Service
+
+#### POST /api/bookings — sebagai user
+![POST createBooking (user)](postman/screenshots/booking-service/POST%20createBooking%20(user).png)
+
+#### GET /api/bookings — sebagai owner
+![GET allBookings (owner)](postman/screenshots/booking-service/GET%20allBookings%20(owner).png)
+
+#### GET /api/bookings/:booking_id
+![GET bookingById](postman/screenshots/booking-service/GET%20bookingById.png)
+
+#### PUT /api/bookings/:booking_id/cancel — dicoba oleh owner ❌ 403
+![PUT cancelBooking failedOwner](postman/screenshots/booking-service/PUT%20cancelBooking%20(user)%20failedOwner.png)
+
+#### PUT /api/bookings/:booking_id/confirm — sebagai owner ✅
+![PUT confirmBookingAsDone (owner)](postman/screenshots/booking-service/PUT%20confirmBookingAsDone%20(owner).png)
+
+#### PUT /api/bookings/:booking_id/confirm — gagal validasi ❌
+![PUT confirmBookingAsDone (owner) failed](postman/screenshots/booking-service/PUT%20confirmBookingAsDone%20(owner)%20failed.png)
+
+---
+
+### Payment Service
+
+#### POST /api/payments — upload bukti DP
+![POST paymentProof (user)](postman/screenshots/payment-service/POST%20paymentProof%20(user).png)
+
+#### PUT /api/payments — upload pelunasan
+![PUT paymentSettled (user)](postman/screenshots/payment-service/PUT%20paymentSettled%20(user).png)
+
+#### PUT /api/payments/:payment_id/verify — verifikasi DP
+![PUT verifyPayment (owner)](postman/screenshots/payment-service/PUT%20verifyPayment%20(owner).png)
+
+#### PUT /api/payments/:payment_id/verify — verifikasi pelunasan
+![PUT verifyPaymentSettle](postman/screenshots/payment-service/PUT%20verifyPaymentSettle.png)
+
+---
+
+### Dashboard Service
+
+#### GET /api/dashboard/today — sebagai owner
+![GET todayDashboard (owner)](postman/screenshots/dashboard-service/GET%20todayDashboard%20(owner).png)
+
+#### GET /api/dashboard/revenue — sebagai owner
+![GET revenue (owner)](postman/screenshots/dashboard-service/GET%20revenue%20(owner).png)
