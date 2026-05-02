@@ -64,9 +64,10 @@ DB_PASSWORD=
 DB_NAME=auth_db
 JWT_ACCESS_SECRET="Alit"
 JWT_REFRESH_SECRET="Reja"
+SECRET_KEY="SUrya"
 GOOGLE_CLIENT_ID=your_google_client_id
 GOOGLE_CLIENT_SECRET=your_google_client_secret
-GOOGLE_CALLBACK_URL=http://localhost:3001/auth/google/callback
+GOOGLE_CALLBACK_URL=http://localhost:3001/api/oauth/google/callback
 NODE_ENV=development
 ```
 
@@ -102,6 +103,7 @@ USER_SERVICE_URL=http://localhost:3001/api
 FIELD_SERVICE_URL=http://localhost:3002/api
 
 JWT_SECRET="Alit"
+
 INTERNAL_GATEWAY_KEY=ALIT123
 ```
 
@@ -110,6 +112,18 @@ Lalu generate app key untuk Laravel:
 cd services/booking-payment-service
 php artisan key:generate
 ```
+
+---
+
+## Catatan Google OAuth
+
+Fitur login Google hanya bisa dijalankan oleh pemilik project karena credentials terikat ke akun Google Console milik developer.
+
+- **Jika hanya ingin test endpoint lain** — kosongkan saja `GOOGLE_CLIENT_ID` dan `GOOGLE_CLIENT_SECRET`, semua endpoint lain tetap berfungsi normal.
+- **Jika ingin OAuth berfungsi** — hubungi pemilik project untuk mendapatkan credentials, atau daftarkan Google OAuth app sendiri di [console.cloud.google.com](https://console.cloud.google.com) lalu pastikan `GOOGLE_CALLBACK_URL` diisi:
+  ```
+  http://localhost:3001/api/oauth/google/callback
+  ```
 
 ---
 
@@ -140,7 +154,46 @@ npm run dev       # jalankan semua service
 - `INTERNAL_GATEWAY_KEY` harus **sama** di gateway dan booking-payment-service (case-sensitive: `ALIT123`)
 - `DB_NAME` fields-service adalah `fields_slot_db`, bukan `fields_db`
 - `AUTH_SERVICE_URL` di fields-service wajib diisi agar enrich owner name berjalan
+- `USER_SERVICE_URL` dan `FIELD_SERVICE_URL` di booking-payment-service wajib diisi agar komunikasi antar service berjalan
 - Pastikan MySQL sudah berjalan sebelum menjalankan migrate
+
+---
+
+## Arsitektur Sistem
+
+```mermaid
+flowchart TD
+    Client([Client / Postman])
+
+    Client -->|HTTP port 3000| Gateway
+
+    subgraph Gateway["API Gateway — port 3000"]
+        GW["JWT verify · routing · internal key"]
+    end
+
+    Gateway -->|port 3001| AuthService
+    Gateway -->|port 3002| FieldsService
+    Gateway -->|port 3003| BookingService
+
+    subgraph AuthService["Auth Service — Node.js port 3001"]
+        AUTH["Register · Login · Logout · Refresh Token · OAuth Google · User CRUD"]
+    end
+
+    subgraph FieldsService["Fields Service — Node.js port 3002"]
+        FIELDS["Fields CRUD · Slots CRUD · Owner validation"]
+    end
+
+    subgraph BookingService["Booking and Payment — Laravel port 3003"]
+        BOOKING["Booking · Payment · Dashboard · Revenue"]
+    end
+
+    AuthService --> AUTH_DB[(auth_db)]
+    FieldsService --> FIELDS_DB[(fields_slot_db)]
+    BookingService --> BOOKING_DB[(booking_db)]
+
+    BookingService -.->|GET /api/user/:id internal call| AuthService
+    BookingService -.->|GET slot · PATCH slot status internal call| FieldsService
+```
 
 ---
 
@@ -159,17 +212,31 @@ Base URL: `http://localhost:3000`
 | `POST` | `/api/auth/register` | Daftar akun baru (`role`: `user` atau `owner`) |
 | `POST` | `/api/auth/login` | Login — response menyertakan `accessToken` |
 | `POST` | `/api/auth/logout` | Logout sesi aktif |
-| `POST` | `/api/auth/refresh` | Perbarui access token |
-| `GET`  | `/api/oauth/google` | Redirect ke Google OAuth |
+| `POST` | `/api/auth/refresh` | Perbarui access token menggunakan refresh token |
+| `GET`  | `/api/oauth/google` | Redirect ke Google OAuth (buka di browser) |
 | `GET`  | `/api/oauth/google/failure` | Callback OAuth ketika login Google gagal |
+
+**Contoh body register:**
+```json
+{
+  "name": "John Doe",
+  "email": "john@example.com",
+  "password": "password123",
+  "role": "user"
+}
+```
+
+---
 
 ### User Service
 
 | Method | Endpoint | Akses | Deskripsi |
 |--------|----------|-------|-----------|
-| `GET`    | `/api/user/:user_id` | 🔒 Semua role | Ambil data user |
-| `PATCH`  | `/api/user/:user_id` | 🔒 Semua role | Update data user |
+| `GET`    | `/api/user/:user_id` | 🔒 Semua role | Ambil data user berdasarkan ID |
+| `PATCH`  | `/api/user/:user_id` | 🔒 Semua role | Update data user (misal: `name`) |
 | `DELETE` | `/api/user/:user_id` | 🔒 Semua role | Hapus akun user |
+
+---
 
 ### Field Service
 
@@ -178,49 +245,134 @@ Base URL: `http://localhost:3000`
 | `GET`    | `/api/fields` | 🔒 Semua role | List semua lapangan |
 | `GET`    | `/api/fields/:field_id` | 🔒 Semua role | Detail satu lapangan |
 | `POST`   | `/api/fields` | 🔒 Owner | Buat lapangan baru |
-| `PATCH`  | `/api/fields/:field_id` | 🔒 Owner | Update lapangan |
+| `PATCH`  | `/api/fields/:field_id` | 🔒 Owner | Update data lapangan |
 | `DELETE` | `/api/fields/:field_id` | 🔒 Owner | Hapus lapangan |
+
+**Contoh body create field:**
+```json
+{
+  "name": "Lapangan Futsal A",
+  "type": "futsal",
+  "address": "Jl. Sudirman No. 10",
+  "city": "Jakarta",
+  "status": "active"
+}
+```
+
+---
 
 ### Slot Service
 
 | Method | Endpoint | Akses | Deskripsi |
 |--------|----------|-------|-----------|
-| `GET`   | `/api/slots` | 🔒 Semua role | Semua slot (filter & pagination) |
+| `GET`   | `/api/slots` | 🔒 Semua role | Semua slot dengan filter & pagination |
 | `GET`   | `/api/fields/:field_id/slots` | 🔒 Semua role | Slot milik lapangan tertentu |
 | `GET`   | `/api/slots/:slot_id` | 🔒 Semua role | Detail satu slot |
 | `POST`  | `/api/fields/:field_id/slots` | 🔒 Owner | Buat slot baru |
-| `PATCH` | `/api/slots/:slot_id` | 🔒 Owner | Update slot |
-| `PATCH` | `/api/slots/:slot_id/status` | Internal | Update status slot |
+| `PATCH` | `/api/slots/:slot_id` | 🔒 Owner | Update slot (harga, status) |
+| `PATCH` | `/api/slots/:slot_id/status` | Internal | Update status slot (dipanggil dari booking service) |
 | `DELETE`| `/api/slots/:slot_id` | 🔒 Owner | Hapus slot |
+
+**Query params `GET /api/slots`:**
+
+| Param | Tipe | Deskripsi |
+|-------|------|-----------|
+| `day` | string | Filter hari: `monday`, `tuesday`, `wednesday`, `thursday`, `friday`, `saturday`, `sunday` |
+| `status` | string | Filter status slot: `available` atau `booked` |
+| `city` | string | Filter berdasarkan kota lapangan |
+| `type` | string | Filter berdasarkan tipe lapangan (misal: `futsal`, `badminton`) |
+| `field_id` | string | Filter berdasarkan lapangan tertentu |
+| `minPrice` | number | Harga minimum slot |
+| `maxPrice` | number | Harga maksimum slot |
+| `page` | number | Halaman (default: `1`) |
+| `limit` | number | Jumlah item per halaman (default: `10`, maks: `100`) |
+
+**Contoh body create slot:**
+```json
+{
+  "day": "monday",
+  "start_time": "08:00",
+  "end_time": "09:00",
+  "price": 150000,
+  "dp_percent": 50,
+  "status": "available"
+}
+```
+
+---
 
 ### Booking Service
 
 | Method | Endpoint | Akses | Deskripsi |
 |--------|----------|-------|-----------|
-| `GET`  | `/api/bookings/me` | 🔒 User | Booking milik user login |
-| `GET`  | `/api/bookings` | 🔒 Owner/Admin | Semua booking |
-| `GET`  | `/api/bookings/:booking_id` | 🔒 Semua role | Detail booking |
+| `GET`  | `/api/bookings/me` | 🔒 User | Booking milik user yang sedang login |
+| `GET`  | `/api/bookings` | 🔒 Owner/Admin | Semua booking (bisa difilter) |
+| `GET`  | `/api/bookings/:booking_id` | 🔒 Semua role | Detail satu booking |
 | `POST` | `/api/bookings` | 🔒 User | Buat booking baru |
 | `PUT`  | `/api/bookings/:booking_id/cancel` | 🔒 User/Admin | Batalkan booking |
-| `PUT`  | `/api/bookings/:booking_id/confirm` | 🔒 Owner | Konfirmasi booking selesai |
-| `PUT`  | `/api/bookings/expire` | 🔒 Admin | Expire booking kadaluarsa |
+| `PUT`  | `/api/bookings/:booking_id/confirm` | 🔒 Owner | Konfirmasi booking sebagai selesai |
+| `PUT`  | `/api/bookings/expire` | 🔒 Admin | Expire semua booking yang melewati batas waktu |
+
+**Contoh body create booking:**
+```json
+{
+  "slot_id": "{{slot_id}}",
+  "field_id": "{{field_id}}",
+  "play_date": "2026-05-05",
+  "notes": "Please prepare the field"
+}
+```
+
+---
 
 ### Payment Service
 
 | Method | Endpoint | Akses | Deskripsi |
 |--------|----------|-------|-----------|
-| `POST` | `/api/payments` | 🔒 User | Upload bukti pembayaran |
-| `GET`  | `/api/payments/:booking_id` | 🔒 Semua role | Riwayat pembayaran |
+| `POST` | `/api/payments` | 🔒 User | Upload bukti pembayaran (DP atau pelunasan) |
+| `GET`  | `/api/payments/:booking_id` | 🔒 Semua role | Riwayat pembayaran per booking |
 | `PUT`  | `/api/payments/:payment_id/verify` | 🔒 Owner/Admin | Verifikasi pembayaran |
 | `PUT`  | `/api/payments/:payment_id/reject` | 🔒 Owner/Admin | Tolak pembayaran |
+
+**Contoh body upload DP:**
+```json
+{
+  "booking_id": "{{booking_id}}",
+  "type": "dp",
+  "amount": 75000,
+  "method": "transfer",
+  "proof_url": "https://storage.example.com/proof/bukti_transfer.jpg"
+}
+```
+
+**Contoh body upload pelunasan:**
+```json
+{
+  "booking_id": "{{booking_id}}",
+  "type": "settlement",
+  "amount": 75000,
+  "method": "transfer",
+  "proof_url": "https://storage.example.com/proof/settlement.jpg"
+}
+```
+
+---
 
 ### Dashboard Service
 
 | Method | Endpoint | Akses | Deskripsi |
 |--------|----------|-------|-----------|
-| `GET` | `/api/dashboard/today` | 🔒 Owner/Admin | Booking hari ini |
-| `GET` | `/api/dashboard/revenue` | 🔒 Owner/Admin | Laporan pendapatan |
-| `GET` | `/api/dashboard/pending` | 🔒 Owner/Admin | Pembayaran pending verifikasi |
+| `GET` | `/api/dashboard/today` | 🔒 Owner/Admin | Daftar booking hari ini |
+| `GET` | `/api/dashboard/revenue` | 🔒 Owner/Admin | Laporan pendapatan berdasarkan rentang tanggal |
+| `GET` | `/api/dashboard/pending` | 🔒 Owner/Admin | Daftar pembayaran yang menunggu verifikasi |
+
+**Query params `GET /api/dashboard/revenue`:**
+
+| Param | Tipe | Deskripsi |
+|-------|------|-----------|
+| `from` | string | Tanggal mulai (format: `YYYY-MM-DD`) |
+| `to` | string | Tanggal akhir (format: `YYYY-MM-DD`) |
+| `field_id` | string | Opsional — filter berdasarkan lapangan tertentu |
 
 ---
 
