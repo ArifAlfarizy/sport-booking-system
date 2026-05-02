@@ -20,9 +20,67 @@ const SLOT_SELECT = `
 `;
 
 // GET all slots
-export const findAllSlots = async () => {
-  const [rows] = await db.query(SLOT_SELECT);
-  return rows;
+export const findAllSlots = async ({
+  day,
+  status,
+  city,
+  type,
+  field_id,
+  minPrice,
+  maxPrice,
+  page,
+  limit,
+}) => {
+  const conditions = [];
+  const values = [];
+
+  if (field_id) {
+    conditions.push("slots.field_id = ?");
+    values.push(field_id);
+  }
+  if (day) {
+    conditions.push("slots.day = ?");
+    values.push(day);
+  }
+  if (status) {
+    conditions.push("slots.status = ?");
+    values.push(status);
+  }
+  if (city) {
+    conditions.push("fields.city = ?");
+    values.push(city);
+  }
+  if (type) {
+    conditions.push("fields.type = ?");
+    values.push(type);
+  }
+  if (minPrice) {
+    conditions.push("slots.price >= ?");
+    values.push(Number(minPrice));
+  }
+  if (maxPrice) {
+    conditions.push("slots.price <= ?");
+    values.push(Number(maxPrice));
+  }
+
+  const where =
+    conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
+
+  // Hitung total data untuk meta pagination
+  const [countRows] = await db.query(
+    `SELECT COUNT(*) AS total FROM slots JOIN fields ON slots.field_id = fields.id ${where}`,
+    values,
+  );
+  const total = countRows[0].total;
+
+  // Query data dengan LIMIT dan OFFSET
+  const offset = (page - 1) * limit;
+  const [rows] = await db.query(
+    `${SLOT_SELECT} ${where} ORDER BY slots.created_at DESC LIMIT ? OFFSET ?`,
+    [...values, limit, offset],
+  );
+
+  return { rows, total };
 };
 
 // GET all slots by field + filter

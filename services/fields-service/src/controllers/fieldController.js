@@ -15,7 +15,9 @@ import {
 
 const getOwnerName = async (ownerId) => {
   try {
-    const res = await fetch(`${process.env.AUTH_SERVICE_URL}/api/user/${ownerId}`);
+    const res = await fetch(
+      `${process.env.AUTH_SERVICE_URL}/api/user/${ownerId}`,
+    );
     if (!res.ok) return null;
     const user = await res.json();
     return user.name ?? null;
@@ -56,7 +58,7 @@ export const getAllFields = async (req, res) => {
     if (type) filters.type = type;
     if (status) filters.status = status;
 
-    if (ownerId) filters.owner_Id = ownerId;
+    if (ownerId) filters.owner_id = ownerId;
 
     if (minPrice || maxPrice) {
       filters.price = {};
@@ -73,7 +75,7 @@ export const getAllFields = async (req, res) => {
     await Promise.all(
       ownerIds.map(async (id) => {
         ownerMap[id] = await getOwnerName(id);
-      })
+      }),
     );
 
     const enriched = fields.map((f) => ({
@@ -189,6 +191,10 @@ export const updateFieldController = async (req, res) => {
 
     const field = await findFieldById(id);
 
+    if (!field) {
+      return res.status(404).json({ message: "Field tidak ditemukan" });
+    }
+
     if (ownerId !== field.owner_id) {
       return res
         .status(403)
@@ -230,6 +236,10 @@ export const deleteFieldController = async (req, res) => {
     const { id } = req.params;
 
     const field = await findFieldById(id);
+    
+    if (!field) {
+      return res.status(404).json({ message: "Field tidak ditemukan" });
+    }
 
     if (ownerId !== field.owner_id) {
       return res

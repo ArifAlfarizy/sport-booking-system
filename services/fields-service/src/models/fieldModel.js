@@ -1,9 +1,40 @@
 import db from "../config/db.js";
 
 // GET : All fields
-export const findAllFields = async () => {
+export const findAllFields = async (filters = {}) => {
+  const conditions = [];
+  const values = [];
+
+  if (filters.city) {
+    conditions.push("city = ?");
+    values.push(filters.city);
+  }
+  if (filters.type) {
+    conditions.push("type = ?");
+    values.push(filters.type);
+  }
+  if (filters.status) {
+    conditions.push("status = ?");
+    values.push(filters.status);
+  }
+  if (filters.owner_id) {
+    conditions.push("owner_id = ?");
+    values.push(filters.owner_Id);
+  }
+  if (filters.price?.gte !== undefined) {
+    conditions.push("price >= ?");
+    values.push(filters.price.gte);
+  }
+  if (filters.price?.lte !== undefined) {
+    conditions.push("price <= ?");
+    values.push(filters.price.lte);
+  }
+
+  const where = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
+
   const [rows] = await db.query(
-    `SELECT * FROM fields ORDER BY created_at DESC`,
+    `SELECT * FROM fields ${where} ORDER BY created_at DESC`,
+    values
   );
   return rows;
 };

@@ -10,10 +10,53 @@ import {
 // GET /fields/slots
 export const getAllSlots = async (req, res) => {
   try {
-    const slots = await findAllSlots();
+    const { day, status, city, type, field_id, minPrice, maxPrice } = req.query;
 
-    res.status(200).json(slots);
+    // Validasi numerik
+    if (minPrice && isNaN(minPrice)) {
+      return res
+        .status(400)
+        .json({ success: false, message: "minPrice harus berupa angka" });
+    }
+    if (maxPrice && isNaN(maxPrice)) {
+      return res
+        .status(400)
+        .json({ success: false, message: "maxPrice harus berupa angka" });
+    }
+
+    // Pagination
+    const page = Math.max(1, parseInt(req.query.page) || 1);
+    const limit = Math.min(100, Math.max(1, parseInt(req.query.limit) || 10));
+
+    const { rows, total } = await findAllSlots({
+      day,
+      status,
+      city,
+      type,
+      field_id,
+      minPrice,
+      maxPrice,
+      page,
+      limit,
+    });
+
+    const totalPages = Math.ceil(total / limit);
+
+    res.status(200).json({
+      success: true,
+      message: "Berhasil mengambil data slots",
+      meta: {
+        total,
+        page,
+        limit,
+        totalPages,
+        hasNextPage: page < totalPages,
+        hasPrevPage: page > 1,
+      },
+      data: rows,
+    });
   } catch (err) {
+    console.error("Error", err);
     return res
       .status(500)
       .json({ success: false, message: "Internal Server Error" });
